@@ -12,13 +12,13 @@ from groq import Groq
 import streamlit as st
 
 # ---------------------------------------------------------
-# 1. إعدادات الصفحة
+# 1. إعدادات الصفحة (إبراز القائمة الجانبية تلقائياً)
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="الموسوعة القانونية المغربية الشاملة | Legal AI Agent",
     page_icon="⚖️",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 # ---------------------------------------------------------
@@ -44,6 +44,12 @@ st.markdown(
     .stChatMessage, .stChatMessage p, .stMarkdown, .stMarkdown p, .stMarkdown div {
         direction: rtl !important;
         text-align: right !important;
+    }
+
+    /* إصلاح محاذاة الأيقونات والرسائل في محاذاة RTL */
+    .stChatMessage {
+        flex-direction: row-reverse !important;
+        gap: 12px !important;
     }
 
     .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown ul, .stMarkdown ol, .stMarkdown li {
@@ -86,12 +92,12 @@ st.markdown(
         font-weight: 600 !important;
     }
 
-    .doc-box {
+    .upload-card {
         background-color: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 15px;
-        margin-bottom: 15px;
+        border: 1px dashed #cbd5e1;
+        border-radius: 14px;
+        padding: 16px;
+        margin-bottom: 20px;
         direction: rtl !important;
     }
     </style>
@@ -120,7 +126,6 @@ FULL_LEGAL_CORPUS = [
 @st.cache_resource
 def init_vector_db():
     chroma_client = chromadb.Client()
-    # استخدام نموذج تضمين متقدم للغة العربية والمتعدد اللغات
     emb_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="paraphrase-multilingual-MiniLM-L12-v2")
     collection = chroma_client.get_or_create_collection(name="moroccan_legal_db", embedding_function=emb_fn)
     
@@ -176,20 +181,27 @@ st.markdown(
 )
 
 # ---------------------------------------------------------
-# 6. قسم رفع الوثائق والعقود (Doc Q&A)
+# 6. قسم رفع الوثائق بارز في أعلى المحادثة والجانب
 # ---------------------------------------------------------
+with st.expander("📂 **ارفع عقداً أو وثيقة للتحليل القانوني المباشر (PDF / Word)**", expanded=False):
+    uploaded_file = st.file_uploader("اختر ملف العقد أو دفتر الشروط الخاصة (CPS) لمطابقته مع التشريع المغربي:", type=["pdf", "docx"], key="main_file_uploader")
+
+document_context = ""
+if uploaded_file is not None:
+    with st.spinner("جاري استخراج وتحليل نص الوثيقة..."):
+        document_context = extract_text_from_file(uploaded_file)
+        if document_context:
+            st.success(f"تم تحميل الوثيقة بنجاح! جاهزة للمطابقة والتحليل.")
+
+# القائمة الجانبية كخيار إضافي
 with st.sidebar:
-    st.header("📄 استشارة حول وثيقة / عقد")
-    uploaded_file = st.file_uploader("ارفع عقد كراء، دفتر شروط (CPS)، أو قرار إداري:", type=["pdf", "docx"])
-    
-    document_context = ""
-    if uploaded_file is not None:
-        with st.spinner("جاري استخراج وتحليل نص الوثيقة..."):
-            document_context = extract_text_from_file(uploaded_file)
-            if document_context:
-                st.success(f"تم تحميل الوثيقة بنجاح! ({len(document_context)} حرف)")
-                with st.expander("معاينة نص الوثيقة المرفوعة"):
-                    st.write(document_context[:1000] + ("..." if len(document_context) > 1000 else ""))
+    st.header("⚙️ إعدادات الجلسة")
+    if st.button("🗑️ إعادة ضبط المحادثة"):
+        st.session_state.messages = [{
+            "role": "assistant",
+            "content": "مرحباً بك! يمكنك طرح أي استفسار قانوني، أو رفع عقد/وثيقة من الأعلى لمطابقتها مع التشريع المغربي والجريدة الرسمية."
+        }]
+        st.rerun()
 
 # ---------------------------------------------------------
 # 7. محرك الذكاء الاصطناعي (Groq setup)
@@ -204,7 +216,7 @@ client = Groq(api_key=api_key)
 if "messages" not in st.session_state:
     st.session_state.messages = [{
         "role": "assistant",
-        "content": "مرحباً بك! يمكنك طرح أي استفسار قانوني، أو رفع عقد/وثيقة من الشريط الجانبي لمطابقتها مع التشريع المغربي والجريدة الرسمية."
+        "content": "مرحباً بك! يمكنك طرح أي استفسار قانوني، أو رفع عقد/وثيقة لمطابقتها مع التشريع المغربي والجريدة الرسمية."
     }]
 
 # عرض المحادثات
