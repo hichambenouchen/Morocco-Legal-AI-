@@ -99,14 +99,13 @@ if "language" not in st.session_state:
     st.session_state.language = "العربية"
 
 # ---------------------------------------------------------
-# 3. قاعدة البيانات المتجهة المرجعية (ChromaDB)
+# 3. محرك البحث المتجهي العام (ChromaDB Vector Store)
 # ---------------------------------------------------------
 FULL_LEGAL_CORPUS = [
     {"id": "doc1", "law": "مرسوم الصفقات العمومية - المادة 4 و 5", "category": "صفقات عمومية", "text": "تخضع الصفقات العمومية لمبادئ حرية الوصول إلى الطلبية العمومية، المساواة في التعامل مع المتنافسين، والشفافية في اختيارات صاحب المشروع."},
-    {"id": "doc2", "law": "قانون الوظيفة العمومية - المادة 2 و 13", "category": "وظيفة عمومية", "text": "الموظف هو كل شخص يعين في وظيفة دائمة ويرسم في إحدى درجات التسلسل الإداري للإدارات التابعة للدولة."},
-    {"id": "doc3", "law": "مدونة الشغل - المادة 13", "category": "شغل", "text": "تحدد فترة التجربة بالنسبة للعقود غير محددة المدة في: 3 أشهر للأطر وما ماثلهم، شهر ونصف للمستخدمين، و15 يوما للعمال."},
-    {"id": "doc4", "law": "مدونة الشغل - المادة 61 و 62", "category": "شغل", "text": "يستحق الأجير تعويضاً عن الفصل التعسفي ما لم يرتكب خطأ جسيماً. ويجب الاستماع إليه بحضور مندوب الأجراء."},
-    {"id": "doc5", "law": "قانون الكراء التجاري (49.16) - المادة 7", "category": "كراء تجاري", "text": "يستحق المكتري تعويضاً كاملاً عن الإفراغ يعادل الضرر الحاصل عن فقدان الأصل التجاري."},
+    {"id": "doc2", "law": "قانون الوظيفة العمومية - اللجان المتساوية الأعضاء", "category": "وظيفة عمومية", "text": "تحدث في كل إدارة عمومية لجان إدارية متساوية الأعضاء تختص بالنظر في الترقية والعقوبات التأديبية للموظفين العموميين وتتكون من ممثلين للإدارة وممثلين للموظفين."},
+    {"id": "doc3", "law": "مدونة الشغل - المادة 13", "category": "شغل", "text": "تحدد فترة التجربة بالنسبة للعقود غير محددة المدة في: 3 أشهر للأطر، شهر ونصف للمستخدمين، و15 يوما للعمال."},
+    {"id": "doc4", "law": "مدونة الشغل - المادة 464 (مندوبو الأجراء)", "category": "شغل", "text": "يجب انتخاب مندوبي الأجراء في جميع المؤسسات التي تشغل اعتيادياً ما لا يقل عن عشرة أجراء أجراء دائمين."},
 ]
 
 @st.cache_resource
@@ -133,7 +132,7 @@ def semantic_search(query, top_k=3):
     return retrieved
 
 # ---------------------------------------------------------
-# 4. دالة قراءة واستخراج النصوص
+# 4. دالة قراءة وتنظيف النصوص وتقسيمها الذكي
 # ---------------------------------------------------------
 def clean_text(text):
     if not text:
@@ -166,30 +165,34 @@ def extract_text_from_file(uploaded_file):
         st.error(f"خطأ في قراءة الملف: {e}")
     return clean_text(text)
 
-# البحث الجزئي الذكي داخل النص الضخم المرفوع
-def search_in_uploaded_doc(query, full_text, max_chars=8000):
+# البحث الدقيق الموجه داخل الملف
+def extract_relevant_snippets(query, full_text, top_n=3, chunk_size=1200):
     if not full_text:
         return ""
-    # إذا كان المستند صغيراً يتم إرساله كاملاً
-    if len(full_text) <= max_chars:
+    if len(full_text) <= chunk_size:
         return full_text
+
+    # تقسيم الملف الضخم إلى فقرات معقولة
+    chunks = [full_text[i:i+chunk_size] for i in range(0, len(full_text), chunk_size - 200)]
     
-    # إذا كان المستند كبيراً مثل مدونة الشغل، يتم البحث عن الفقرات ذات الصلة بالسؤال
-    keywords = [k for k in query.split() if len(k) > 2]
-    paragraphs = full_text.split("\n")
-    matching_paragraphs = []
+    # فلترة الكلمات الأساسية
+    keywords = [k for k in re.findall(r'\w+', query) if len(k) > 2]
     
-    for p in paragraphs:
-        if any(kw in p for kw in keywords):
-            matching_paragraphs.append(p)
-            if sum(len(x) for x in matching_paragraphs) >= max_chars:
-                break
-                
-    if matching_paragraphs:
-        return "\n".join(matching_paragraphs)
+    scored_chunks = []
+    for chunk in chunks:
+        score = sum(chunk.count(kw) for kw in keywords)
+        if score > 0:
+            scored_chunks.append((score, chunk))
+            
+    scored_chunks.sort(key=lambda x: x[0], reverse=True)
+    
+    if scored_chunks:
+        # أخذ أفضل الفقرات المطابقة فقط لمنع تكرار الحشو
+        selected = [item[1] for item in scored_chunks[:top_n]]
+        return "\n--- فقرة مطابقة ---\n".join(selected)
     else:
-        # إذا لم يتم العثور على كلمات مطابقة، نأخذ الجزء الأول والجزء الأخير
-        return full_text[:4000] + "\n...\n" + full_text[-4000:]
+        # إذا لم يُعثر على مطابقة في الملف
+        return "NO_DIRECT_MATCH"
 
 # ---------------------------------------------------------
 # 5. القائمة الجانبية
@@ -209,7 +212,7 @@ with st.sidebar:
         st.rerun()
 
 # ---------------------------------------------------------
-# 6. الهيدر والرسالة الأولى
+# 6. الواجهة والرسالة الأولى
 # ---------------------------------------------------------
 st.markdown(
     """
@@ -230,7 +233,7 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # ---------------------------------------------------------
-# 7. شريط الإدخال ورفع الملفات
+# 7. شريط الإدخال المدمج
 # ---------------------------------------------------------
 col_file, col_input = st.columns([1.5, 8.5], vertical_alignment="bottom")
 
@@ -249,11 +252,11 @@ if st.session_state.uploaded_doc_name:
     st.info(f"📄 الملف المرفق المعتمد حالياً: **{st.session_state.uploaded_doc_name}** ({len(st.session_state.uploaded_doc_text)} حرف)")
 
 with col_input:
-    placeholder_text = "اطرح سؤالك القانوني هنا حول الملف المرفق أو القانون..." if st.session_state.language == "العربية" else "Posez votre question juridique ici..."
+    placeholder_text = "اطرح سؤالك القانوني هنا..." if st.session_state.language == "العربية" else "Posez votre question juridique ici..."
     user_input = st.chat_input(placeholder_text)
 
 # ---------------------------------------------------------
-# 8. معالجة الإجابة الذكية
+# 8. معالجة السؤال والتحليل الذكي الصارم
 # ---------------------------------------------------------
 api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
 if not api_key:
@@ -267,41 +270,50 @@ if user_input:
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # 1. تصفية النص المناسب من المستند المرفوع حسب السؤال
-    relevant_doc_snippet = ""
+    # 1. تحليل الملف المرفوع
+    doc_snippet = ""
+    match_found = True
     if st.session_state.uploaded_doc_text:
-        relevant_doc_snippet = search_in_uploaded_doc(user_input, st.session_state.uploaded_doc_text)
+        doc_snippet = extract_relevant_snippets(user_input, st.session_state.uploaded_doc_text)
+        if doc_snippet == "NO_DIRECT_MATCH":
+            match_found = False
+            doc_snippet = ""
 
-    # 2. البحث الدلالي العام
+    # 2. البحث المرجعي في التشريع
     retrieved_docs = semantic_search(user_input, top_k=3)
     formatted_context = "\n".join([f"- {d['law']}: {d['text']}" for d in retrieved_docs])
 
-    # 3. توجيه المحرك
-    doc_context_instruction = ""
-    if relevant_doc_snippet:
-        doc_context_instruction = f"""
-        PRIMARY SOURCE: THE USER HAS UPLOADED A SPECIFIC FILE NAMED ({st.session_state.uploaded_doc_name}).
-        EXTRACTED RELEVANT TEXT FROM UPLOADED FILE:
-        \"\"\"
-        {relevant_doc_snippet}
-        \"\"\"
-        INSTRUCTION: Answer the user query using the uploaded document content above as the primary truth!
-        """
+    # 3. صياغة التعليمات الصارمة لمنع الهلوسة والتكرار
+    doc_instruction = ""
+    if st.session_state.uploaded_doc_text:
+        if match_found and doc_snippet:
+            doc_instruction = f"""
+            ATTACHED FILE: ({st.session_state.uploaded_doc_name})
+            RELEVANT EXTRACTS FROM ATTACHED FILE:
+            \"\"\"
+            {doc_snippet}
+            \"\"\"
+            """
+        else:
+            doc_instruction = f"""
+            ATTACHED FILE: ({st.session_state.uploaded_doc_name})
+            NOTE: The user's query topic WAS NOT FOUND in the uploaded document text.
+            INSTRUCTION: State clearly that this specific subject is not mentioned in the uploaded file ({st.session_state.uploaded_doc_name}), then explain the correct legal rule based on Moroccan legislation.
+            """
 
     system_prompt = f"""
     You are an expert Moroccan Legal AI Advisor.
-    Response Language: {st.session_state.language}
+    Language: {st.session_state.language}
     
-    {doc_context_instruction}
+    {doc_instruction}
 
-    Secondary General Legal Reference Database:
+    GENERAL MOROCCAN LAW STATUTES:
     {formatted_context}
 
-    Rules:
-    1. Direct answer in {st.session_state.language}.
-    2. Focus directly on answering the user's specific question using the provided text.
-    3. Do NOT say "no law found" if the uploaded file contains the text. Analyze the text provided.
-    4. Be accurate, concise, and professional.
+    CRITICAL RULES:
+    1. NEVER repeat paragraphs or sentences. Present a clean, well-structured response.
+    2. Do NOT invent concepts (e.g., do NOT attribute Public Sector terms like "اللجان المتساوية الأعضاء" to the Private Sector Code "مدونة الشغل" unless making a legal distinction).
+    3. Respond directly, accurately, and professionally in {st.session_state.language}.
     """
 
     messages_payload = [{"role": "system", "content": system_prompt}]
@@ -309,12 +321,12 @@ if user_input:
         messages_payload.append({"role": m["role"], "content": m["content"]})
 
     with st.chat_message("assistant"):
-        with st.spinner("جاري قراءة الملف وتحليل السؤال..."):
+        with st.spinner("جاري فحص المراجع القانونية والتحليل..."):
             try:
                 response = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=messages_payload,
-                    temperature=0.1,
+                    temperature=0.0,  # Zero temperature eliminates creativity/hallucination
                 )
                 bot_reply = response.choices[0].message.content
                 st.markdown(bot_reply)
