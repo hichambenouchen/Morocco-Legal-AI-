@@ -13,14 +13,29 @@ import streamlit as st
 # 1. إعدادات الصفحة
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="الموسوعة القانونية المغربية الشاملة | Legal AI Agent",
+    page_title="الموسوعة القانونية المغربية | Legal AI Agent",
     page_icon="⚖️",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 # ---------------------------------------------------------
-# 2. تصميم الواجهة ودعم اتجاه النص (RTL CSS) وتنسيق الإدخال المدمج
+# 2. إدارة حالة الجلسة (Session State) - حاسمة لمنع التوقف
+# ---------------------------------------------------------
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+if "uploaded_doc_text" not in st.session_state:
+    st.session_state.uploaded_doc_text = ""
+
+if "uploaded_doc_name" not in st.session_state:
+    st.session_state.uploaded_doc_name = ""
+
+if "language" not in st.session_state:
+    st.session_state.language = "العربية"
+
+# ---------------------------------------------------------
+# 3. تصميم الواجهة ودعم RTL واللغات
 # ---------------------------------------------------------
 st.markdown(
     """
@@ -73,7 +88,6 @@ st.markdown(
         margin-top: 6px;
     }
 
-    /* تحسين زر البوب أوفر ليستقر في ملاصقة خانة الكتابة */
     div[data-element-id="stPopover"] > button {
         border-radius: 12px !important;
         height: 44px !important;
@@ -82,32 +96,21 @@ st.markdown(
         color: #1e293b !important;
         font-weight: bold !important;
     }
-
-    div[data-element-id="stPopover"] > button:hover {
-        background-color: #e2e8f0 !important;
-        border-color: #94a3b8 !important;
-    }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 # ---------------------------------------------------------
-# 3. بناء قاعدة البيانات المتجهة (ChromaDB Vector Store)
+# 4. بناء قاعدة البيانات المتجهة (ChromaDB)
 # ---------------------------------------------------------
 FULL_LEGAL_CORPUS = [
-    {"id": "doc1", "law": "مرسوم الصفقات العمومية - المادة 4 و 5", "category": "صفقات عمومية", "text": "تخضع الصفقات العمومية لمبادئ حرية الوصول إلى الطلبية العمومية، المساواة في التعامل مع المتنافسين، والشفافية في اختيارات صاحب المشروع. وتشمل الصفقات: صفقة أشغال، توريدات، أو خدمات."},
-    {"id": "doc2", "law": "مرسوم الصفقات العمومية - المادة 16 و 17", "category": "صفقات عمومية", "text": "تتم طريقة إبرام الصفقات العمومية عن طريق طلبات العروض (مفتوح أو محدود)، المباراة، أو المسطرة التفاوضية. يعتبر طلب العروض المفتوح هو الأصل."},
-    {"id": "doc3", "law": "مرسوم الصفقات العمومية - المادة 40", "category": "صفقات عمومية", "text": "يستوجب على المتنافسين تقديم ضمان مؤقت للقبول في الصفقات العمومية، ثم يتوجب على النائل إيداع ضمان نهائي لضمان تنفيذه السليم للالتزامات التعاقدية."},
-    {"id": "doc4", "law": "مرسوم الصفقات العمومية - المادة 136", "category": "صفقات عمومية", "text": "يمكن للمتنافسين تقديم شكايات ورسائل طعن للجنة الصفقات العمومية أو السلطة الحكومية المعنية في حال الإخلال بقواعد المنافسة والشفافية."},
-    {"id": "doc5", "law": "قانون الوظيفة العمومية - المادة 2 و 13", "category": "وظيفة عمومية", "text": "الموظف هو كل شخص يعين في وظيفة دائمة ويرسم في إحدى درجات التسلسل الإداري للإدارات التابعة للدولة. والتوظيف يتم عبر المباريات للجميع بمساواة."},
-    {"id": "doc6", "law": "قانون الوظيفة العمومية - المادة 39 و 40", "category": "وظيفة عمومية", "text": "للموظف الحق في العطلة السنوية المؤدى عنها ومدتها شهر عن كل سنة عمل. كما يستفيد من رخص المرض ورخص الولادة والأمومة."},
-    {"id": "doc7", "law": "قانون الوظيفة العمومية - المادة 65 و 66", "category": "وظيفة عمومية", "text": "تحدد العقوبات التأديبية في درجتين: الأولى تشمل الإنذار والتوبيخ، والثانية تشمل الإنزلاق في الدرجة، الحرمان من الترقية، أو العزل."},
-    {"id": "doc8", "law": "قانون الوظيفة العمومية - المادة 73", "category": "وظيفة عمومية", "text": "إذا ارتكب الموظف خطأ جسيماً جاز توقيفه فوراً من طرف السلطة التي لها حق التأديب مع خصم أجرته باستثناء التعويضات العائلية."},
-    {"id": "doc9", "law": "مدونة الشغل - المادة 13", "category": "شغل", "text": "تحدد فترة التجربة بالنسبة للعقود غير محددة المدة في: 3 أشهر للأطر وما ماثلهم، شهر ونصف للمستخدمين، و15 يوما للعمال."},
-    {"id": "doc10", "law": "مدونة الشغل - المادة 61 و 62", "category": "شغل", "text": "يستحق الأجير تعويضاً عن الفصل التعسفي ما لم يرتكب خطأ جسيماً. ويجب الاستماع إليه بحضور مندوب الأجراء في أجل لا يتعدى 8 أيام."},
-    {"id": "doc11", "law": "قانون الكراء التجاري (49.16) - المادة 7", "category": "كراء تجاري", "text": "يستحق المكتري تعويضاً كاملاً عن الإفراغ يعادل الضرر الحاصل عن فقدان الأصل التجاري ما لم يستند الإفراغ لعدم أداء الكراء أو البناء."},
-    {"id": "doc12", "law": "القانون الجنائي - المادة 540", "category": "جنائي", "text": "يعاقب بالحبس من سنة إلى خمس سنوات وغرامة كل من استعمل الاحتيال والخداع لإيقاع شخص في الغلط وسلبه أموالاً (النصب)."},
+    {"id": "doc1", "law": "مرسوم الصفقات العمومية - المادة 4 و 5", "category": "صفقات عمومية", "text": "تخضع الصفقات العمومية لمبادئ حرية الوصول إلى الطلبية العمومية، المساواة في التعامل مع المتنافسين، والشفافية في اختيارات صاحب المشروع."},
+    {"id": "doc2", "law": "مرسوم الصفقات العمومية - المادة 16 و 17", "category": "صفقات عمومية", "text": "تتم طريقة إبرام الصفقات العمومية عن طريق طلبات العروض (مفتوح أو محدود)، المباراة، أو المسطرة التفاوضية."},
+    {"id": "doc3", "law": "قانون الوظيفة العمومية - المادة 2 و 13", "category": "وظيفة عمومية", "text": "الموظف هو كل شخص يعين في وظيفة دائمة ويرسم في إحدى درجات التسلسل الإداري للإدارات التابعة للدولة."},
+    {"id": "doc4", "law": "مدونة الشغل - المادة 13", "category": "شغل", "text": "تحدد فترة التجربة بالنسبة للعقود غير محددة المدة في: 3 أشهر للأطر وما ماثلهم، شهر ونصف للمستخدمين، و15 يوما للعمال."},
+    {"id": "doc5", "law": "مدونة الشغل - المادة 61 و 62", "category": "شغل", "text": "يستحق الأجير تعويضاً عن الفصل التعسفي ما لم يرتكب خطأ جسيماً. ويجب الاستماع إليه بحضور مندوب الأجراء."},
+    {"id": "doc6", "law": "قانون الكراء التجاري (49.16) - المادة 7", "category": "كراء تجاري", "text": "يستحق المكتري تعويضاً كاملاً عن الإفراغ يعادل الضرر الحاصل عن فقدان الأصل التجاري."},
 ]
 
 @st.cache_resource
@@ -134,12 +137,11 @@ def semantic_search(query, top_k=3):
     return retrieved
 
 # ---------------------------------------------------------
-# 4. دالة استخراج وتنظيف النصوص من PDF / DOCX
+# 5. استخراج النصوص من الملفات
 # ---------------------------------------------------------
-def clean_arabic_text(text):
+def clean_text(text):
     if not text:
         return ""
-    text = re.sub(r'[^\w\s\d\.\,\:\;\-\_\(\)\n\u0600-\u06FF]', ' ', text)
     text = re.sub(r'\s+', ' ', text)
     return text.strip()
 
@@ -149,10 +151,9 @@ def extract_text_from_file(uploaded_file):
         if uploaded_file.name.endswith(".pdf"):
             with pdfplumber.open(uploaded_file) as pdf:
                 for page in pdf.pages:
-                    extracted = page.extract_text(layout=True)
+                    extracted = page.extract_text()
                     if extracted:
                         text += extracted + "\n"
-            
             if not text.strip():
                 uploaded_file.seek(0)
                 reader = pypdf.PdfReader(uploaded_file)
@@ -160,121 +161,118 @@ def extract_text_from_file(uploaded_file):
                     extracted = page.extract_text()
                     if extracted:
                         text += extracted + "\n"
-
         elif uploaded_file.name.endswith(".docx"):
             doc = docx.Document(uploaded_file)
             for p in doc.paragraphs:
                 if p.text:
                     text += p.text + "\n"
-                    
     except Exception as e:
-        st.error(f"حدث خطأ أثناء قراءة الوثيقة: {e}")
-    
-    return clean_arabic_text(text)
+        st.error(f"خطأ في قراءة الملف: {e}")
+    return clean_text(text)
 
 # ---------------------------------------------------------
-# 5. الهيدر والقائمة الجانبية
+# 6. القائمة الجانبية: تحديد اللغة وإعادة الضبط
+# ---------------------------------------------------------
+with st.sidebar:
+    st.header("🌐 إعدادات اللغة / Langue")
+    lang_choice = st.radio("اختر لغة الإجابة / Langue المعتمدة:", ["العربية", "Français"], index=0 if st.session_state.language == "العربية" else 1)
+    st.session_state.language = lang_choice
+
+    st.divider()
+
+    st.header("⚙️ خيارات الجلسة")
+    if st.button("🗑️ إعادة ضبط الجلسة", use_container_width=True):
+        st.session_state.messages = []
+        st.session_state.uploaded_doc_text = ""
+        st.session_state.uploaded_doc_name = ""
+        st.rerun()
+
+# ---------------------------------------------------------
+# 7. الهيدر وتهيئة المحادثة הראשوية
 # ---------------------------------------------------------
 st.markdown(
     """
     <div class="hero-header">
         <div class="hero-title">⚖️ الموسوعة القانونية المغربية الذكية</div>
-        <div class="hero-subtitle">وكيل قانوني معزز بمحرك بحث دلالي (ChromaDB Vector RAG) وقارئ المستندات والعقود الرسمية (SGG)</div>
+        <div class="hero-subtitle">Assistant Juridique Marocain المعزز بالجريدة الرسمية والتحليل الدلالي (ChromaDB Vector RAG)</div>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-with st.sidebar:
-    st.header("⚙️ خيارات الجلسة")
-    if st.button("🗑️ مسح المحادثة وإعادة البداية", use_container_width=True):
-        st.session_state.messages = [{
-            "role": "assistant",
-            "content": "مرحباً بك! يمكنك طرح أي استفسار قانوني، أو إرفاق عقد/وثيقة من زر (+) بجانب خانة الدردشة لمطابقتها مع التشريع المغربي."
-        }]
-        st.rerun()
-
-# ---------------------------------------------------------
-# 6. محرك الذكاء الاصطناعي (Groq)
-# ---------------------------------------------------------
-api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
-if not api_key:
-    st.error("⚠️ GROQ_API_KEY مفقود! يرجى إضافته إلى Secrets.")
-    st.stop()
-
-client = Groq(api_key=api_key)
-
-if "messages" not in st.session_state:
-    st.session_state.messages = [{
-        "role": "assistant",
-        "content": "مرحباً بك! يمكنك طرح أي استفسار قانوني، أو إرفاق عقد/وثيقة عبر زر (+) الموجود بجانب خانة الإدخال بالأسفل لمطابقتها مع التشريع المغربي والجريدة الرسمية."
-    }]
+if not st.session_state.messages:
+    welcome_msg = "مرحباً بك! أنا مساعدك القانوني المغربي. يمكنك طرح أي سؤال أو رفع عقد/وثيقة لمطابقتها مع التشريع المغربي." if st.session_state.language == "العربية" else "Bienvenue! Je suis votre assistant juridique marocain. Posez votre question ou téléchargez un document."
+    st.session_state.messages.append({"role": "assistant", "content": welcome_msg})
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
 # ---------------------------------------------------------
-# 7. شريط الإدخال الموحد (زر + وحقل الكتابة في نفس السطر)
+# 8. شريط رفع الملفات وتثبيته في Session State
 # ---------------------------------------------------------
-uploaded_file = None
-document_context = ""
-
 col_file, col_input = st.columns([1.5, 8.5], vertical_alignment="bottom")
 
 with col_file:
     with st.popover("➕ إرفاق", use_container_width=True):
         st.markdown("### 📎 إرفاق عقد أو وثيقة (PDF / Word)")
-        uploaded_file = st.file_uploader("اختر الملف:", type=["pdf", "docx"], key="direct_file_uploader")
-        if uploaded_file is not None:
-            document_context = extract_text_from_file(uploaded_file)
-            if document_context:
-                st.success(f"تمت قراءة الملف بنجاح ({len(document_context)} حرف)")
+        file_obj = st.file_uploader("اختر الملف:", type=["pdf", "docx"], key="doc_uploader")
+        if file_obj is not None:
+            if st.session_state.uploaded_doc_name != file_obj.name:
+                extracted = extract_text_from_file(file_obj)
+                st.session_state.uploaded_doc_text = extracted
+                st.session_state.uploaded_doc_name = file_obj.name
+                st.success(f"تم تحميل وقراءة: {file_obj.name}")
+
+if st.session_state.uploaded_doc_name:
+    st.info(f"📄 الملف المرفق المعتمد حالياً: **{st.session_state.uploaded_doc_name}** ({len(st.session_state.uploaded_doc_text)} حرف)")
 
 with col_input:
-    user_input = st.chat_input("اطرح سؤالك القانوني أو اكتب استفسارك حول الملف المرفق...")
+    placeholder_text = "اطرح سؤالك القانوني هنا..." if st.session_state.language == "العربية" else "Posez votre question juridique ici..."
+    user_input = st.chat_input(placeholder_text)
 
 # ---------------------------------------------------------
-# 8. معالجة الإدخال والتحليل
+# 9. محرك الذكاء الاصطناعي والمعالجة
 # ---------------------------------------------------------
+api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
+if not api_key:
+    st.error("⚠️ GROQ_API_KEY مفقود في Secrets!")
+    st.stop()
+
+client = Groq(api_key=api_key)
+
 if user_input:
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
 
     retrieved_docs = semantic_search(user_input, top_k=3)
-    
-    formatted_context = ""
-    sources_ui = []
-    for idx, doc in enumerate(retrieved_docs, 1):
-        formatted_context += f"[{idx}] {doc['law']}: {doc['text']}\n"
-        sources_ui.append(f"• **{doc['law']}**: {doc['text']}")
+    formatted_context = "\n".join([f"- {d['law']}: {d['text']}" for d in retrieved_docs])
 
-    doc_instruction = ""
-    if document_context:
-        doc_instruction = f"""
-        CRITICAL INSTRUCTION: The user HAS uploaded a document. Below is the CLEAN EXTRACTED ARABIC TEXT from the file:
-        
-        === START OF UPLOADED DOCUMENT TEXT ===
-        {document_context[:4000]}
-        === END OF UPLOADED DOCUMENT TEXT ===
-        
-        Analyze this document text thoroughly in accordance with Moroccan laws.
+    doc_context_instruction = ""
+    if st.session_state.uploaded_doc_text:
+        doc_context_instruction = f"""
+        USER UPLOADED DOCUMENT TEXT:
+        \"\"\"
+        {st.session_state.uploaded_doc_text[:4000]}
+        \"\"\"
+        Analyze this document text directly to answer the user request.
         """
 
     system_prompt = f"""
-    You are an expert Moroccan Legal AI Advisor using Vector Search (ChromaDB) and SGG Official Legislation.
+    You are an expert Moroccan Legal AI Advisor.
+    Language to respond in: {st.session_state.language}
     
-    {doc_instruction}
+    {doc_context_instruction}
 
-    Retrieved Statutory Legal Framework (Official Laws from Database):
+    Retrieved Moroccan Statutory Laws:
     {formatted_context}
-    
+
     Instructions:
-    1. Answer in fluent, academically sound Arabic.
-    2. Read and analyze the uploaded text provided above accurately.
-    3. Cite exact Decree, Dahir, or Article numbers clearly.
-    4. End with a professional legal disclaimer.
+    1. Answer strictly in {st.session_state.language}.
+    2. If the user asks about the attached document, analyze its text provided above.
+    3. Cite relevant legal articles or dahirs where appropriate.
+    4. Provide professional legal guidance.
     """
 
     messages_payload = [{"role": "system", "content": system_prompt}]
@@ -282,21 +280,16 @@ if user_input:
         messages_payload.append({"role": m["role"], "content": m["content"]})
 
     with st.chat_message("assistant"):
-        if sources_ui:
-            with st.expander("📚 المراجع والمواد القانونية المطابقة (Vector RAG):"):
-                for src in sources_ui:
-                    st.markdown(src)
-
-        with st.spinner("جاري تحليل الطلب والبحث الدلالي..."):
+        with st.spinner("جاري التحليل واستخراج الإجابة..."):
             try:
                 response = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=messages_payload,
-                    temperature=0.1,
+                    temperature=0.15,
                 )
                 bot_reply = response.choices[0].message.content
                 st.markdown(bot_reply)
                 st.session_state.messages.append({"role": "assistant", "content": bot_reply})
                 st.rerun()
             except Exception as e:
-                st.error(f"حدث خطأ أثناء معالجة الاستشارة: {e}")
+                st.error(f"حدث خطأ: {e}")
