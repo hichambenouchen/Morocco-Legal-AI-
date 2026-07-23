@@ -9,75 +9,60 @@ st.set_page_config(
 )
 
 # 2. تنسيق الواجهة بلغة CSS مع دعم كامل للغة العربية (RTL) وخط Cairo المتقدم
-st.markdown("""
+st.markdown(
+    """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
-    
+    /* استدعاء خط القاهرة */
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+
     html, body, [class*="css"] {
-        font-family: 'Cairo', sans-serif;
+        font-family: 'Cairo', sans-serif !important;
         direction: rtl;
         text-align: right;
     }
-    
-    .main {
-        background-color: #f8fafc;
+
+    /* إخفاء شريط الأدوات العلوي وزر Streamlit غير الضروري لتوفير المساحة */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+
+    /* ضبط الحاويات الرئيسية */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 5rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
     }
-    
-    /* الهيدر الرئيسي */
-    .header-box {
-        background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e40af 100%);
-        color: white;
-        padding: 28px 32px;
-        border-radius: 16px;
-        margin-bottom: 25px;
-        box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    
-    .header-box h1 {
-        color: #ffffff;
-        font-size: 2.3rem;
-        font-weight: 800;
-        margin-bottom: 10px;
-        letter-spacing: -0.5px;
-    }
-    
-    .header-box p {
-        color: #cbd5e1;
-        font-size: 1.1rem;
-        margin: 0;
-        line-height: 1.6;
-    }
-    
-    /* الشريط الجانبي */
-    section[data-testid="stSidebar"] {
-        background-color: #ffffff;
-        border-left: 1px solid #e2e8f0;
-    }
-    
-    .stAlert {
-        border-radius: 10px;
-    }
-    
-    .stChatInputContainer {
-        border-radius: 12px;
-        border: 1px solid #cbd5e1;
-    }
-    
-    .rag-badge {
-        background-color: #f0fdf4;
-        border: 1px solid #bbf7d0;
-        color: #166534;
-        padding: 12px 14px;
-        border-radius: 10px;
-        font-size: 0.88rem;
-        font-weight: 600;
-        margin-top: 10px;
-        line-height: 1.5;
+
+    /* تحسينات مخصصة للهواتف الشاشات الصغيرة (Responsive Design) */
+    @media (max-width: 768px) {
+        /* إغلاق/تصغير القائمة الجانبية تلقائياً في الهاتف */
+        [data-testid="stSidebar"] {
+            min-width: 100% !important;
+            max-width: 100% !important;
+        }
+
+        /* تصغير حجم خط العناوين لتناسب الهاتف */
+        h1 {
+            font-size: 1.5rem !important;
+            line-height: 1.3 !important;
+            text-align: center !important;
+        }
+        
+        p, div {
+            font-size: 0.95rem !important;
+        }
+
+        /* ضبط مربعات الرسائل */
+        .stChatMessage {
+            padding: 10px !important;
+            border-radius: 10px !important;
+        }
     }
     </style>
-""", unsafe_allow_html=True)
-
+    """,
+    unsafe_allow_html=True,
+)
 # 3. الهيدر الرئيسي
 st.markdown("""
     <div class="header-box">
