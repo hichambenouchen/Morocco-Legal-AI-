@@ -4,8 +4,6 @@ import re
 import docx
 import pypdf
 import pdfplumber
-import arabic_reshaper
-from bidi.algorithm import get_display
 import chromadb
 from chromadb.utils import embedding_functions
 from groq import Groq
@@ -22,7 +20,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# 2. تصميم الواجهة ودعم اتجاه النص (RTL CSS)
+# 2. تصميم الواجهة ودعم RTL وتكتاكت الرفع المدمج
 # ---------------------------------------------------------
 st.markdown(
     """
@@ -37,7 +35,7 @@ st.markdown(
 
     .block-container {
         padding-top: 1rem !important;
-        padding-bottom: 6rem !important;
+        padding-bottom: 7rem !important;
         max-width: 1200px !important;
     }
 
@@ -49,16 +47,6 @@ st.markdown(
     .stChatMessage {
         flex-direction: row-reverse !important;
         gap: 12px !important;
-    }
-
-    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown ul, .stMarkdown ol, .stMarkdown li {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-
-    .stChatInput textarea {
-        direction: rtl !important;
-        text-align: right !important;
     }
 
     .hero-header {
@@ -84,6 +72,26 @@ st.markdown(
         color: #cbd5e1;
         margin-top: 8px;
         line-height: 1.6;
+    }
+
+    /* تنسيق زر الإرفاق ليظهر ملتصقاً بخانة الدردشة في الأسفل */
+    div[data-element-id="stPopover"] {
+        position: fixed;
+        bottom: 25px;
+        right: 18%;
+        z-index: 99999;
+    }
+    
+    div[data-element-id="stPopover"] > button {
+        border-radius: 50% !important;
+        width: 45px !important;
+        height: 45px !important;
+        padding: 0 !important;
+        font-size: 22px !important;
+        background-color: #1e3a8a !important;
+        color: white !important;
+        border: none !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
     }
     </style>
     """,
@@ -132,12 +140,11 @@ def semantic_search(query, top_k=3):
     return retrieved
 
 # ---------------------------------------------------------
-# 4. دالة متطورة لقراءة وتصفية النصوص العربية من PDF / DOCX
+# 4. دالة استخراج وتنظيف النصوص من PDF / DOCX
 # ---------------------------------------------------------
 def clean_arabic_text(text):
     if not text:
         return ""
-    # تنظيف الرموز الغريبة والمحافظة على الحروف العربية والأرقام
     text = re.sub(r'[^\w\s\d\.\,\:\;\-\_\(\)\n\u0600-\u06FF]', ' ', text)
     text = re.sub(r'\s+', ' ', text)
     return text.strip()
@@ -146,14 +153,12 @@ def extract_text_from_file(uploaded_file):
     text = ""
     try:
         if uploaded_file.name.endswith(".pdf"):
-            # المحاولة الأولى عبر pdfplumber (الأفضل في معالجة العربية)
             with pdfplumber.open(uploaded_file) as pdf:
                 for page in pdf.pages:
                     extracted = page.extract_text(layout=True)
                     if extracted:
                         text += extracted + "\n"
             
-            # محاولة ثانوية عبر pypdf إذا كان النص فارغاً
             if not text.strip():
                 uploaded_file.seek(0)
                 reader = pypdf.PdfReader(uploaded_file)
@@ -169,12 +174,12 @@ def extract_text_from_file(uploaded_file):
                     text += p.text + "\n"
                     
     except Exception as e:
-        st.error(f"حدث خطأ أثناء استخراج النص من الوثيقة: {e}")
+        st.error(f"حدث خطأ أثناء قراءة الوثيقة: {e}")
     
     return clean_arabic_text(text)
 
 # ---------------------------------------------------------
-# 5. الهيدر وواجهة التطبيق
+# 5. الهيدر
 # ---------------------------------------------------------
 st.markdown(
     """
@@ -186,18 +191,17 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# القائمة الجانبية
 with st.sidebar:
     st.header("⚙️ خيارات الجلسة")
     if st.button("🗑️ مسح المحادثة وإعادة البداية", use_container_width=True):
         st.session_state.messages = [{
             "role": "assistant",
-            "content": "مرحباً بك! يمكنك طرح أي استفسار قانوني، أو إرفاق عقد/وثيقة عبر أيقونة الزائد (+) لمطابقتها مع التشريع المغربي."
+            "content": "مرحباً بك! يمكنك طرح أي استفسار قانوني، أو رفع عقد/وثيقة لمطابقتها مع التشريع المغربي."
         }]
         st.rerun()
 
 # ---------------------------------------------------------
-# 6. إعداد Groq
+# 6. محرك الذكاء الاصطناعي (Groq)
 # ---------------------------------------------------------
 api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
 if not api_key:
@@ -209,7 +213,7 @@ client = Groq(api_key=api_key)
 if "messages" not in st.session_state:
     st.session_state.messages = [{
         "role": "assistant",
-        "content": "مرحباً بك! يمكنك طرح أي استفسار قانوني، أو إرفاق عقد/وثيقة عبر أيقونة الزائد (+) بالأسفل لمطابقتها مع التشريع المغربي والجريدة الرسمية."
+        "content": "مرحباً بك! يمكنك طرح أي استفسار قانوني، أو إرفاق عقد/وثيقة عبر زر (+) الموجود في خانة الإدخال بالأسفل لمطابقتها مع التشريع المغربي والجريدة الرسمية."
     }]
 
 for msg in st.session_state.messages:
@@ -217,26 +221,25 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # ---------------------------------------------------------
-# 7. قسم رفع الملف وقراءته
+# 7. زر الإرفاق الدائري (+) وخانة السؤال في نفس المكان
 # ---------------------------------------------------------
-with st.popover("➕ إرفاق ملف / عقد (PDF or Word)", use_container_width=False):
-    uploaded_file = st.file_uploader("قم برفع ملف العقد أو الوثيقة هنا:", type=["pdf", "docx"], key="inline_file_uploader")
-
+uploaded_file = None
 document_context = ""
-if uploaded_file is not None:
-    with st.spinner("جاري استخراج وتنظيف النص العربي من الوثيقة..."):
+
+# النافذة المنبثقة من زر (+) المدمج
+with st.popover("➕"):
+    st.markdown("### 📎 إرفاق عقد أو وثيقة (PDF / Word)")
+    uploaded_file = st.file_uploader("اختر الملف:", type=["pdf", "docx"], key="direct_file_uploader")
+    if uploaded_file is not None:
         document_context = extract_text_from_file(uploaded_file)
         if document_context:
-            st.success(f"✅ تم استخراج النص بنجاح ({len(document_context)} حرف).")
-            with st.expander("معاينة النص الذي تم استخراجه وقراءته من الملف:"):
-                st.text(document_context[:1000] + ("..." if len(document_context) > 1000 else ""))
-        else:
-            st.error("⚠️ لم نتمكن من قراءة النص من الملف! قد يكون الملف عبارة عن صورة مصورة (Scanned) وليس نصاً حقيقياً.")
+            st.success(f"تمت قراءة الملف بنجاح ({len(document_context)} حرف)")
 
+# خانة الدردشة الرئيسية
 user_input = st.chat_input("اطرح سؤالك القانوني أو اكتب استفسارك حول الملف المرفق...")
 
 # ---------------------------------------------------------
-# 8. معالجة الإدخال
+# 8. المعالجة
 # ---------------------------------------------------------
 if user_input:
     st.session_state.messages.append({"role": "user", "content": user_input})
@@ -254,13 +257,13 @@ if user_input:
     doc_instruction = ""
     if document_context:
         doc_instruction = f"""
-        CRITICAL INSTRUCTION: The user has uploaded a document. Here is the CLEAN EXTRACTED ARABIC TEXT from the file:
+        CRITICAL INSTRUCTION: The user HAS uploaded a document. Below is the CLEAN EXTRACTED ARABIC TEXT from the file:
         
         === START OF UPLOADED DOCUMENT TEXT ===
         {document_context[:4000]}
         === END OF UPLOADED DOCUMENT TEXT ===
         
-        Analyze this document text thoroughly. Read the actual legal clauses, dates, names, or responsibilities inside it.
+        Analyze this document text thoroughly in accordance with Moroccan laws.
         """
 
     system_prompt = f"""
@@ -273,10 +276,9 @@ if user_input:
     
     Instructions:
     1. Answer in fluent, academically sound Arabic.
-    2. Read and analyze the uploaded text provided above accurately. Do NOT invent gibberish or non-existent words.
-    3. If the extracted text from the document is clear, explain its clauses and check its compliance with Moroccan law.
-    4. Cite exact Decree, Dahir, or Article numbers clearly.
-    5. End with a professional legal disclaimer.
+    2. Read and analyze the uploaded text provided above accurately.
+    3. Cite exact Decree, Dahir, or Article numbers clearly.
+    4. End with a professional legal disclaimer.
     """
 
     messages_payload = [{"role": "system", "content": system_prompt}]
@@ -289,7 +291,7 @@ if user_input:
                 for src in sources_ui:
                     st.markdown(src)
 
-        with st.spinner("جاري قراءة نص العقد وتدقيقه قانونياً..."):
+        with st.spinner("جاري تحليل الطلب والبحث الدلالي..."):
             try:
                 response = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
