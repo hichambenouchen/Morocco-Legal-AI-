@@ -4,7 +4,6 @@ import docx
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from fpdf import FPDF
 from groq import Groq
 import streamlit as st
 
@@ -12,24 +11,22 @@ import streamlit as st
 # 1. إعدادات الصفحة الأساسية
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="المستشار القانوني الذكي - مدونة الشغل المغربية",
+    page_title="المستشار القانوني الذكي | JurisConsult AI",
     page_icon="⚖️",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
 # ---------------------------------------------------------
-# 2. تنسيق الواجهة وخط القاهرة وتجاوب الشاشات (CSS)
+# 2. تصميم CSS احترافي وفاخر (Professional Legal Theme)
 # ---------------------------------------------------------
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Inter:wght@400;600&display=swap');
 
     html, body, [class*="css"] {
-        font-family: 'Cairo', sans-serif !important;
-        direction: rtl;
-        text-align: right;
+        font-family: 'Cairo', 'Inter', sans-serif !important;
     }
 
     #MainMenu {visibility: hidden;}
@@ -38,36 +35,83 @@ st.markdown(
 
     .block-container {
         padding-top: 1rem !important;
-        padding-bottom: 5rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
+        padding-bottom: 6rem !important;
+        max-width: 1100px !important;
     }
 
-    /* تحسين زر الأسئلة السريعة */
-    .stButton>button {
-        width: 100%;
-        border-radius: 8px;
-        font-family: 'Cairo', sans-serif !important;
+    /* الهيدر الاحترافي الفاخر */
+    .hero-header {
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+        border-radius: 16px;
+        padding: 25px 30px;
+        color: white;
+        margin-bottom: 25px;
+        box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .hero-title {
+        font-size: 2.2rem;
+        font-weight: 800;
+        margin: 0;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        gap: 12px;
     }
 
-    /* تحسينات الشاشات الصغيرة (الهواتف) */
+    .hero-subtitle {
+        font-size: 1rem;
+        color: #93c5fd;
+        margin-top: 8px;
+        font-weight: 400;
+    }
+
+    /* أزرار اختيار اللغة */
+    .lang-container {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+
+    /* بطاقات الأسئلة السريعة والأدوات */
+    .quick-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 15px;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    
+    .quick-card:hover {
+        border-color: #3b82f6;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.12);
+        transform: translateY(-2px);
+    }
+
+    /* تحسين تصميم الشات */
+    .stChatMessage {
+        border-radius: 14px !important;
+        padding: 15px !important;
+        margin-bottom: 12px !important;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+    }
+
+    /* التجاوب للهواتف المحمولة */
     @media (max-width: 768px) {
         [data-testid="stSidebar"] { display: none !important; }
         [data-testid="collapsedControl"] { display: none !important; }
-        .main .block-container {
-            padding-left: 0.5rem !important;
-            padding-right: 0.5rem !important;
-            max-width: 100% !important;
+        .hero-header {
+            padding: 18px 20px;
+            text-align: center;
         }
-        h1 {
-            font-size: 1.4rem !important;
-            line-height: 1.3 !important;
-            text-align: center !important;
+        .hero-title {
+            font-size: 1.5rem;
+            justify-content: center;
         }
-        p, div { font-size: 0.95rem !important; }
-        .stChatMessage {
-            padding: 10px !important;
-            border-radius: 10px !important;
+        .hero-subtitle {
+            font-size: 0.85rem;
         }
     }
     </style>
@@ -75,9 +119,114 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# ---------------------------------------------------------
+# 3. إدارة خيار اللغة (Language Switcher)
+# ---------------------------------------------------------
+if "lang" not in st.session_state:
+  st.session_state.lang = "ar"
+
+# شريط اختيار اللغات العلوي
+col_lang1, col_lang2, col_space = st.columns([2, 3, 5])
+with col_lang1:
+  st.caption("🌐 **اختيار لغة الاستشارة / Language:**")
+with col_lang2:
+  selected_lang = st.radio(
+      "Language",
+      options=["العربية 🇲🇦", "Français 🇫🇷", "English 🇬🇧"],
+      horizontal=True,
+      label_visibility="collapsed",
+  )
+  if "🇲🇦" in selected_lang:
+    st.session_state.lang = "ar"
+  elif "🇫🇷" in selected_lang:
+    st.session_state.lang = "fr"
+  else:
+    st.session_state.lang = "en"
+
+# النصوص بحسب اللغة المختارة
+TEXTS = {
+    "ar": {
+        "title": "المستشار القانوني الذكي",
+        "subtitle": (
+            "المنصة المعتمدة للاستشارات الذكية في مدونة الشغل المغربية (القانون"
+            " 65.99)"
+        ),
+        "welcome": (
+            "مرحباً بك! أنا مستشارك القانوني الخبير في مدونة الشغل المغربية."
+            " كيف يمكنني مساعدتك اليوم؟"
+        ),
+        "input_placeholder": "اطرح استفسارك القانوني هنا...",
+        "quick_questions": "💡 أسئلة قانونية شائعة بنقرة واحدة:",
+        "q1": "كم مدة عطلة الأمومة والأبوة؟",
+        "q2": "ما هي حقوق الأجير عند الفصل التعسفي؟",
+        "q3": "ما هي المدة القانونية لفترة التجربة؟",
+        "tools": "🛠️ أدوات الاستشارة وتحميل التقارير",
+        "reset": "🗑️ مسح المحادثة",
+        "download_txt": "📥 تقرير (TXT)",
+        "download_word": "📄 تقرير وورد (DOCX)",
+        "dir": "rtl",
+    },
+    "fr": {
+        "title": "JurisConsult Maroc IA",
+        "subtitle": (
+            "Assistant Juridique Intelligent pour le Code du Travail Marocain"
+            " (Loi 65.99)"
+        ),
+        "welcome": (
+            "Bonjour! Je suis votre assistant juridique expert en Code du"
+            " Travail marocain. Comment puis-je vous aider aujourd'hui?"
+        ),
+        "input_placeholder": "Posez votre question juridique ici...",
+        "quick_questions": "💡 Questions fréquentes en un clic :",
+        "q1": "Quelle est la durée du congé de maternité ?",
+        "q2": "Quels sont les indemnités de licenciement abusif ?",
+        "q3": "Quelle est la durée de la période d'essai ?",
+        "tools": "🛠️ Outils & Téléchargement",
+        "reset": "🗑️ Réinitialiser",
+        "download_txt": "📥 Rapport (TXT)",
+        "download_word": "📄 Rapport Word (DOCX)",
+        "dir": "ltr",
+    },
+    "en": {
+        "title": "Moroccan Legal AI Assistant",
+        "subtitle": (
+            "Smart Legal Advisory Platform for Moroccan Labor Code (Law 65.99)"
+        ),
+        "welcome": (
+            "Hello! I am your expert legal assistant for the Moroccan Labor"
+            " Code. How can I help you today?"
+        ),
+        "input_placeholder": "Ask your legal question here...",
+        "quick_questions": "💡 Frequent Legal Questions:",
+        "q1": "What is the duration of maternity/paternity leave?",
+        "q2": "What are the compensation rights for unfair dismissal?",
+        "q3": "What is the legal duration of the probation period?",
+        "tools": "🛠️ Consultation Tools & Downloads",
+        "reset": "🗑️ Reset Chat",
+        "download_txt": "📥 Report (TXT)",
+        "download_word": "📄 Word Report (DOCX)",
+        "dir": "ltr",
+    },
+}
+
+current_texts = TEXTS[st.session_state.lang]
 
 # ---------------------------------------------------------
-# 3. دالتا إنشــاء ملفات DOCX و PDF (باستخدام FPDF خفيف ومستقر)
+# 4. الهيدر البصري الاحترافي (Hero Banner)
+# ---------------------------------------------------------
+st.markdown(
+    f"""
+    <div class="hero-header">
+        <div class="hero-title">⚖️ {current_texts['title']}</div>
+        <div class="hero-subtitle">{current_texts['subtitle']}</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# ---------------------------------------------------------
+# 5. دالة إنشاء ملف Word منظم
 # ---------------------------------------------------------
 def generate_docx(messages):
   doc = docx.Document()
@@ -89,29 +238,29 @@ def generate_docx(messages):
     bidi.set(qn('w:val'), '1')
     p_pr.append(bidi)
 
-  title = doc.add_paragraph('تقرير استشارة قانونية - مدونة الشغل المغربية')
-  set_rtl(title)
-  title.runs[0].font.bold = True
-  title.runs[0].font.size = docx.shared.Pt(16)
+  title = doc.add_paragraph('Rapport de Consultation Juridique - Droit du Travail')
+  if st.session_state.lang == 'ar':
+    set_rtl(title)
+    title.runs[0].text = (
+        'تقرير استشارة قانونية - مدونة الشغل المغربية (القانون 65.99)'
+    )
 
-  doc.add_paragraph('')
+  title.runs[0].font.bold = True
+  title.runs[0].font.size = docx.shared.Pt(15)
 
   for msg in messages:
-    role_name = 'المستخدم' if msg['role'] == 'user' else 'المستشار القانوني'
+    role_name = 'المستخدم / User' if msg['role'] == 'user' else 'المستشار القانوني / JurisConsult'
     p = doc.add_paragraph()
-    set_rtl(p)
+    if st.session_state.lang == 'ar':
+      set_rtl(p)
 
     run_role = p.add_run(f'[{role_name}]:\n')
     run_role.bold = True
-    run_role.font.color.rgb = (
-        docx.shared.RGBColor(180, 50, 50)
-        if msg['role'] == 'user'
-        else docx.shared.RGBColor(20, 80, 160)
-    )
 
     p_content = doc.add_paragraph(msg['content'])
-    set_rtl(p_content)
-    doc.add_paragraph('-' * 40)
+    if st.session_state.lang == 'ar':
+      set_rtl(p_content)
+    doc.add_paragraph('-' * 45)
 
   buffer = io.BytesIO()
   doc.save(buffer)
@@ -119,249 +268,187 @@ def generate_docx(messages):
   return buffer.getvalue()
 
 
-def generate_pdf_text(messages):
-  # إنشاء ملف نصي مُصمم كبديل آمن وسريع للمستندات
-  pdf_str = "==================================================\n"
-  pdf_str += "⚖️ تقرير استشارة قانونية - مدونة الشغل المغربية\n"
-  pdf_str += "==================================================\n\n"
-
-  for msg in messages:
-    role = "السؤال:" if msg["role"] == "user" else "الإجابة القانونية:"
-    pdf_str += f"{role}\n{msg['content']}\n"
-    pdf_str += "\n--------------------------------------------------\n\n"
-
-  pdf_str += (
-      "\nملاحظة: هذه الاستشارة ذات طابع أكاديمي واسترشادي ولا تغني عن"
-      " الاستشارة القضائية."
-  )
-  return pdf_str.encode("utf-8")
-
-
 # ---------------------------------------------------------
-# 4. إعداد الـ API الخاص بـ Groq
+# 6. إعداد Groq API وقاعدة المعرفة
 # ---------------------------------------------------------
-api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
-
+api_key = st.secrets.get('GROQ_API_KEY') or os.getenv('GROQ_API_KEY')
 if not api_key:
-  st.error("⚠️ لم يتم العثور على GROQ_API_KEY. يرجى إضافته في Streamlit Secrets.")
+  st.error('⚠️ GROQ_API_KEY Missing!')
   st.stop()
 
 client = Groq(api_key=api_key)
 
-# ---------------------------------------------------------
-# 5. قاعدة المعرفة القانونية المباشرة (مُوسّعة)
-# ---------------------------------------------------------
 LEGAL_KNOWLEDGE_BASE = {
-    "عطلة": (
-        "المادة 231 وما يليها من القانون 65.99: يستحق الأجير عطلة سنوية مؤدى"
-        " عنها بعد قضائه 6 أشهر من الخدمة الفعلية. مدتها يوم ونصف يوم من العمل"
-        " الفعلي عن كل شهر (يومان للأجراء أقل من 18 سنة)."
+    'عطلة': (
+        'المادة 231: رخصة سنوية يوم ونصف عن كل شهر. Congé annuel payé: 1.5'
+        ' jour par mois.'
     ),
-    "أمومة": (
-        "المادة 152: تتمتع الأجيرة بمناسبة الحمل والولادة برخصة أمومة مدتها 14"
-        " أسبوعاً. المادة 269: يستفيد الأب الأجير من رخصة مدتها 3 أيام بمناسبة"
-        " كل ولادة."
+    'أمومة': (
+        'المادة 152: رخصة أمومة 14 أسبوعاً. Congé de maternité: 14 semaines.'
+        ' Congé de paternité: 3 jours.'
     ),
-    "فصل": (
-        "المواد 61-65: الفصل التعسفي يوجب التعويض (تعويض الفصل، مهلة الإشعار،"
-        " وتعويض عن الضرر). الأخطاء الجسيمة المرتكبة من الأجير تسقط التعويض"
-        " بشرط احترام مسطرة الاستماع (المادة 62)."
+    'فصل': (
+        'المواد 61-65: التعويض عن الفصل التعسفي والإنذار. Licenciement abusif:'
+        ' indemnités de préavis et dommages-intérêts.'
     ),
-    "طرد": (
-        "المواد 61-65: الطرد التعسفي يوجب التعويضات القانونية المستحقة كاملة ما"
-        " لم يثبت ارتكاب خطأ جسيم ومراعاة مسطرة المادة 62."
+    'طرد': (
+        'المواد 61-65: التعويض عن الفصل التعسفي والإنذار. Licenciement abusif:'
+        ' indemnités de préavis et dommages-intérêts.'
     ),
-    "تجربة": (
-        "المادة 13: فترة التجربة هي: 3 أشهر للأطر، شهر ونصف للمستخدمين، و15"
-        " يوماً للعمال. يمكن تجديدها مرة واحدة فقط."
+    'تجربة': (
+        'المادة 13: فترة التجربة: الأطر 3 أشهر، المستخدمون 1.5 شهر، العمال 15'
+        ' يوماً. Période d'essai: Cadres 3 mois, Employés 1.5 mois, Ouvriers'
+        ' 15 jours.'
     ),
-    "ساعات إضافية": (
-        "المادة 196 وما يليها: تُؤدى الزيادة عن الساعات الإضافية بنسبة 25% بين 6"
-        " صباحاً و9 ليلاً، و50% بين 9 ليلاً و6 صباحاً. وترتفع إلى 50% و100% في"
-        " أيام العطل."
-    ),
-    "إشعار": (
-        "المادة 43 وما يليها: يجب احترام أجل الإشعار (Notice) قبل إنهاء العقد"
-        " غير محدد المدة، وتختلف المدة بحسب الأقدمية وفئة الأجير (من أسبوع إلى"
-        " 3 أشهر)."
-    ),
-    "عقد": (
-        "المادة 16: عقد الشغل يكون غير محدد المدة (CDD) أو محدد المدة (CDD) في"
-        " حالات استثنائية محددة قانوناً (كإنجاز مشروع أو استبدال أجير)."
-    ),
-    "أعياد": (
-        "المادة 217: يمنع شغل الأجراء في أيام الأعياد المؤدى عنها والأيام المحددة"
-        " بنص تنظيمي إلا في بعض القطاعات الخاصة مع التعويض عنها."
-    ),
-    "حادثة شغل": (
-        "القانون 18.12 المتعلق بحوادث الشغل: التصريح بالحادثة إجباري داخل أجل"
-        " 48 ساعة لشركة التأمين والسلطات."
-    ),
-    "صحة وسلامة": (
-        "المادة 281 وما يليها: يتوجب على المشغل السهر على نظافة وسلامة الأجراء"
-        " وتوفير وسائل الوقاية وإحداث لجنة السلامة للمقاولات التي تشغل أكثر من"
-        " 50 أجيراً."
-    ),
-    "حد أدنى للأجر": (
-        "المادة 356 وما يليها: يضمن SMIG و SMAG حماية القدرة الشرائية للأجراء"
-        " وتحدد قيمته بموجب مرسوم تنظيمي."
+    'ساعات إضافية': (
+        'المادة 196: زيادة 25% نهاراً و50% ليلاً. Heures supplémentaires:'
+        ' majoration de 25% à 50%.'
     ),
 }
 
 
 def retrieve_context(query: str) -> str:
-  retrieved = []
-  for key, text in LEGAL_KNOWLEDGE_BASE.items():
-    if key in query:
-      retrieved.append(text)
-  if retrieved:
-    return "\n".join(retrieved)
+  retrieved = [
+      text for key, text in LEGAL_KNOWLEDGE_BASE.items() if key in query.lower()
+  ]
   return (
-      "استند إلى المقتضيات العامة والشرعية لمدونة الشغل المغربية (القانون"
-      " 65.99)."
+      '\n'.join(retrieved)
+      if retrieved
+      else 'المقتضيات العامة لمدونة الشغل المغربية (Loi 65.99).'
   )
 
 
 # ---------------------------------------------------------
-# 6. الواجهة الرئيسية
+# 7. قسم الأدوات والتحميل المنسق
 # ---------------------------------------------------------
-st.title("⚖️ المستشار القانوني الذكي")
-st.caption(
-    "المنصة المعتمدة للاستشارات المباشرة في مدونة الشغل المغربية (القانون 65.99)"
-)
-
-# قائمة منسدلة للإعدادات وتحميل السجل
-with st.expander("⚙️ خيارات وأدوات الاستشارة وتحميل التقارير"):
-  st.write(
-      "نظام خبير مدعوم بالذكاء الاصطناعي وتقنية RAG للإجابة عن الاستشارات"
-      " القانونية."
-  )
-
+with st.expander(current_texts['tools']):
   col_reset, col_txt, col_docx = st.columns(3)
 
   with col_reset:
-    if st.button("🗑️ مسح المحادثة"):
-      st.session_state.messages = [{
-          "role": "assistant",
-          "content": (
-              "مرحباً بك! أنا مستشارك القانوني الخبير لمدونة الشغل المغربية."
-              " كيف يمكنني مساعدتك اليوم؟"
-          ),
-      }]
+    if st.button(current_texts['reset']):
+      st.session_state.messages = [
+          {'role': 'assistant', 'content': current_texts['welcome']}
+      ]
       st.rerun()
 
-  # إظهار أزرار التحميل إذا كانت هناك استشارة فعلية
-  if "messages" in st.session_state and len(st.session_state.messages) > 1:
+  if 'messages' in st.session_state and len(st.session_state.messages) > 1:
     with col_txt:
-      chat_text = "\n\n".join([
-          f"{'المستخدم' if m['role']=='user' else 'المستشار'}: {m['content']}"
+      chat_text = '\n\n'.join([
+          f"{'User' if m['role']=='user' else 'Legal AI'}: {m['content']}"
           for m in st.session_state.messages
       ])
       st.download_button(
-          "📥 تقرير نصي (TXT)",
+          current_texts['download_txt'],
           data=chat_text,
-          file_name="legal_consultation.txt",
-          mime="text/plain",
+          file_name='legal_consultation.txt',
+          mime='text/plain',
       )
 
     with col_docx:
       docx_bytes = generate_docx(st.session_state.messages)
       st.download_button(
-          "📄 تقرير وورد (Word)",
+          current_texts['download_word'],
           data=docx_bytes,
-          file_name="legal_consultation.docx",
-          mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          file_name='legal_consultation.docx',
+          mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       )
 
 # ---------------------------------------------------------
-# 7. إدارة سجل المحادثة والأسئلة السريعة
+# 8. إدارة المحادثة والأسئلة السريعة
 # ---------------------------------------------------------
-if "messages" not in st.session_state:
-  st.session_state.messages = [{
-      "role": "assistant",
-      "content": (
-          "مرحباً بك! أنا مستشارك القانوني الخبير لمدونة الشغل المغربية. كيف"
-          " يمكنني مساعدتك اليوم؟"
-      ),
-  }]
+if (
+    'messages' not in st.session_state
+    or len(st.session_state.messages) == 0
+    or st.session_state.messages[0]['content']
+    not in [TEXTS[k]['welcome'] for k in TEXTS]
+):
+  st.session_state.messages = [
+      {'role': 'assistant', 'content': current_texts['welcome']}
+  ]
 
-# أسئلة سريعة مقترحة عند بداية المحادثة
 if len(st.session_state.messages) <= 1:
-  st.write("💡 **أسئلة قانونية شائعة (إضغط للسؤال فوراً):**")
+  st.markdown(f"**{current_texts['quick_questions']}**")
   q_cols = st.columns(3)
 
   prompt_to_send = None
-  if q_cols[0].button("كم مدة عطلة الأمومة والأبوة؟"):
-    prompt_to_send = (
-        "كم هي مدة عطلة الأمومة والأبوة في مدونة الشغل المغربية؟"
-    )
-  if q_cols[1].button("ما هي حقوق الأجير عند الطرد؟"):
-    prompt_to_send = (
-        "ما هي التعويضات المستحقة للأجير في حالة التعرض للفصل التعسفي؟"
-    )
-  if q_cols[2].button("كم تبلغ فترة التجربة للأطر؟"):
-    prompt_to_send = "ما هي المدة القانونية لفترة التجربة بالنسبة للأطر والعمال؟"
+  if q_cols[0].button(f"📌 {current_texts['q1']}"):
+    prompt_to_send = current_texts['q1']
+  if q_cols[1].button(f"📌 {current_texts['q2']}"):
+    prompt_to_send = current_texts['q2']
+  if q_cols[2].button(f"📌 {current_texts['q3']}"):
+    prompt_to_send = current_texts['q3']
 
   if prompt_to_send:
-    st.session_state.messages.append({"role": "user", "content": prompt_to_send})
+    st.session_state.messages.append({'role': 'user', 'content': prompt_to_send})
     st.rerun()
 
-# عرض رسائل السجل
+# عرض المحادثات
 for msg in st.session_state.messages:
-  with st.chat_message(msg["role"]):
-    st.markdown(msg["content"])
+  with st.chat_message(msg['role']):
+    st.markdown(msg['content'])
 
 # ---------------------------------------------------------
-# 8. معالجة المدخلات والردود من GROQ
+# 9. معالجة الردود بلغة المستخدم المختارة
 # ---------------------------------------------------------
-user_input = st.chat_input("اطرح استفسارك القانوني هنا...")
+user_input = st.chat_input(current_texts['input_placeholder'])
 
 if user_input or (
     len(st.session_state.messages) > 1
-    and st.session_state.messages[-1]["role"] == "user"
+    and st.session_state.messages[-1]['role'] == 'user'
     and len(st.session_state.messages) % 2 == 0
 ):
 
   current_prompt = (
-      user_input if user_input else st.session_state.messages[-1]["content"]
+      user_input if user_input else st.session_state.messages[-1]['content']
   )
 
   if user_input:
-    st.session_state.messages.append({"role": "user", "content": current_prompt})
-    with st.chat_message("user"):
+    st.session_state.messages.append({'role': 'user', 'content': current_prompt})
+    with st.chat_message('user'):
       st.markdown(current_prompt)
 
   context = retrieve_context(current_prompt)
 
+  # تخصيص لغة الإجابة بحسب الخيار المختار
+  lang_instruction = {
+      'ar': (
+          'أجب باللغة العربية الفصحى مع الاستشهاد بمواد مدونة الشغل المغربية'
+          ' (القانون 65.99).'
+      ),
+      'fr': (
+          'Répondez en Français professionnel en citant les articles du Code'
+          ' du Travail Marocain (Loi 65.99).'
+      ),
+      'en': (
+          'Answer in professional English referencing articles of the Moroccan'
+          ' Labor Code (Law 65.99).'
+      ),
+  }[st.session_state.lang]
+
   system_prompt = f"""
-    أنت مستشار قانوني مغربي خبير متخصص حصرياً في مدونة الشغل المغربية (القانون رقم 65.99) والقوانين ذات الصلة.
-    
-    المرجع القانوني المباشر المتاح للطلب:
-    {context}
-    
-    التزم بالتعليمات التالية:
-    1. قدم إجابات دقيقة ومباشرة مستندة إلى مواد مدونة الشغل المغربية مع ذكر أرقام المواد بوضوح.
-    2. صغ الإجابة بلغة عربية سليمة، مع تنظيمها في نقاط واضحة ومقروءة.
-    3. اختم دائماً بتنبيه مختصر بأسلوب استرشادي يؤكد أن هذه الاستشارة ذات طابع أكاديمي ولا تغني عن الاستشارة القضائية/المحاماة.
+    You are an expert Moroccan Legal Assistant specializing in the Moroccan Labor Code (Law 65.99).
+    Context: {context}
+    Language Rule: {lang_instruction}
+    Provide structured, accurate, and professional legal answers with disclaimer at the end.
     """
 
-  messages_payload = [{"role": "system", "content": system_prompt}]
+  messages_payload = [{'role': 'system', 'content': system_prompt}]
   for m in st.session_state.messages:
-    messages_payload.append({"role": m["role"], "content": m["content"]})
+    messages_payload.append({'role': m['role'], 'content': m['content']})
 
-  with st.chat_message("assistant"):
-    with st.spinner("جاري التحليل والمطابقة القانونية..."):
+  with st.chat_message('assistant'):
+    with st.spinner('...' if st.session_state.lang != 'ar' else 'جاري التحليل القانوني...'):
       try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model='llama-3.3-70b-versatile',
             messages=messages_payload,
             temperature=0.2,
         )
         bot_reply = response.choices[0].message.content
         st.markdown(bot_reply)
         st.session_state.messages.append(
-            {"role": "assistant", "content": bot_reply}
+            {'role': 'assistant', 'content': bot_reply}
         )
         st.rerun()
       except Exception as e:
-        st.error(f"حدث خطأ أثناء التواصل مع المحرك القانوني: {e}")
+        st.error(f'Error: {e}')
