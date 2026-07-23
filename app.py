@@ -12,7 +12,7 @@ from groq import Groq
 import streamlit as st
 
 # ---------------------------------------------------------
-# 1. إعدادات الصفحة (إبراز القائمة الجانبية تلقائياً)
+# 1. إعدادات الصفحة
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="الموسوعة القانونية المغربية الشاملة | Legal AI Agent",
@@ -22,7 +22,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# 2. تصميم الواجهة ودعم اتجاه النص (RTL CSS)
+# 2. تصميم الواجهة ودعم اتجاه النص (RTL CSS) + زر الأيقونة (+)
 # ---------------------------------------------------------
 st.markdown(
     """
@@ -37,7 +37,7 @@ st.markdown(
 
     .block-container {
         padding-top: 1rem !important;
-        padding-bottom: 5rem !important;
+        padding-bottom: 6rem !important;
         max-width: 1200px !important;
     }
 
@@ -46,7 +46,7 @@ st.markdown(
         text-align: right !important;
     }
 
-    /* إصلاح محاذاة الأيقونات والرسائل في محاذاة RTL */
+    /* إصلاح محاذاة الرسائل والأيقونات */
     .stChatMessage {
         flex-direction: row-reverse !important;
         gap: 12px !important;
@@ -87,18 +87,17 @@ st.markdown(
         line-height: 1.6;
     }
 
-    .stButton>button {
-        border-radius: 10px !important;
-        font-weight: 600 !important;
-    }
-
-    .upload-card {
-        background-color: #f8fafc;
-        border: 1px dashed #cbd5e1;
-        border-radius: 14px;
-        padding: 16px;
-        margin-bottom: 20px;
-        direction: rtl !important;
+    /* شريط إرفاق الملف المدمج في أسفل منطقة الدردشة */
+    .file-attach-bar {
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 8px 15px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        direction: rtl;
     }
     </style>
     """,
@@ -180,31 +179,19 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ---------------------------------------------------------
-# 6. قسم رفع الوثائق بارز في أعلى المحادثة والجانب
-# ---------------------------------------------------------
-with st.expander("📂 **ارفع عقداً أو وثيقة للتحليل القانوني المباشر (PDF / Word)**", expanded=False):
-    uploaded_file = st.file_uploader("اختر ملف العقد أو دفتر الشروط الخاصة (CPS) لمطابقته مع التشريع المغربي:", type=["pdf", "docx"], key="main_file_uploader")
-
-document_context = ""
-if uploaded_file is not None:
-    with st.spinner("جاري استخراج وتحليل نص الوثيقة..."):
-        document_context = extract_text_from_file(uploaded_file)
-        if document_context:
-            st.success(f"تم تحميل الوثيقة بنجاح! جاهزة للمطابقة والتحليل.")
-
-# القائمة الجانبية كخيار إضافي
+# القائمة الجانبية لإدارة المحادثة
 with st.sidebar:
-    st.header("⚙️ إعدادات الجلسة")
-    if st.button("🗑️ إعادة ضبط المحادثة"):
+    st.header("⚙️ خيارات الجلسة")
+    if st.button("🗑️ مسح المحادثة وإعادة البداية", use_container_width=True):
         st.session_state.messages = [{
             "role": "assistant",
-            "content": "مرحباً بك! يمكنك طرح أي استفسار قانوني، أو رفع عقد/وثيقة من الأعلى لمطابقتها مع التشريع المغربي والجريدة الرسمية."
+            "content": "مرحباً بك! يمكنك طرح أي استفسار قانوني، أو إرفاق عقد/وثيقة عبر أيقونة الزائد (+) بجانب مربع الكتابة بالأسفل لمطابقتها مع التشريع المغربي."
         }]
+        st.session_state.uploaded_file_cache = None
         st.rerun()
 
 # ---------------------------------------------------------
-# 7. محرك الذكاء الاصطناعي (Groq setup)
+# 6. محرك الذكاء الاصطناعي (Groq setup)
 # ---------------------------------------------------------
 api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
 if not api_key:
@@ -216,7 +203,7 @@ client = Groq(api_key=api_key)
 if "messages" not in st.session_state:
     st.session_state.messages = [{
         "role": "assistant",
-        "content": "مرحباً بك! يمكنك طرح أي استفسار قانوني، أو رفع عقد/وثيقة لمطابقتها مع التشريع المغربي والجريدة الرسمية."
+        "content": "مرحباً بك! يمكنك طرح أي استفسار قانوني، أو إرفاق عقد/وثيقة عبر أيقونة الزائد (+) بالأسفل لمطابقتها مع التشريع المغربي والجريدة الرسمية."
     }]
 
 # عرض المحادثات
@@ -225,10 +212,25 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # ---------------------------------------------------------
-# 8. معالجة الإدخال بنظام RAG المتجهي والمستندات
+# 7. منطقة إرفاق الملف بأيقونة (+) ومربع الدردشة
 # ---------------------------------------------------------
-user_input = st.chat_input("اطرح سؤالك القانوني أو استفسارك حول الوثيقة المرفوعة...")
 
+# قائمة آكورديون صغيرة وخفيفة تشبه زر (+) لإرفاق ملف قبل الكتابة
+with st.popover("➕ إرفاق ملف / عقد (PDF or Word)", use_container_width=False):
+    uploaded_file = st.file_uploader("قم برفع ملف العقد أو الوثيقة هنا:", type=["pdf", "docx"], key="inline_file_uploader")
+
+document_context = ""
+if uploaded_file is not None:
+    with st.spinner("جاري استخراج وتحليل نص الوثيقة المرفوعة..."):
+        document_context = extract_text_from_file(uploaded_file)
+        if document_context:
+            st.info(f"📎 **الملف المرفق حالياً:** `{uploaded_file.name}` ({len(document_context)} حرف)")
+
+user_input = st.chat_input("اطرح سؤالك القانوني أو اكتب استفسارك حول الملف المرفق...")
+
+# ---------------------------------------------------------
+# 8. معالجة الإدخال وتحليل المستندات
+# ---------------------------------------------------------
 if user_input:
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
@@ -243,23 +245,33 @@ if user_input:
         formatted_context += f"[{idx}] {doc['law']}: {doc['text']}\n"
         sources_ui.append(f"• **{doc['law']}**: {doc['text']}")
 
-    # 2. بناء سياق الوثيقة المرفوعة إن وجدت
-    uploaded_doc_prompt = ""
+    # 2. إدراج نص الوثيقة المرفوعة وتنبيه النموذج بإصرار
+    doc_instruction = ""
     if document_context:
-        uploaded_doc_prompt = f"\n\nAttached User Document Context:\n\"\"\"\n{document_context[:3000]}\n\"\"\"\n"
+        doc_instruction = f"""
+        CRITICAL: The user HAS successfully attached a document. Below is the FULL EXTRACTED TEXT of the user's uploaded file:
+        
+        === START OF ATTACHED DOCUMENT ===
+        {document_context[:4000]}
+        === END OF ATTACHED DOCUMENT ===
+        
+        You MUST analyze and answer based on this document when asked about it! NEVER say you cannot receive or see files.
+        """
 
     system_prompt = f"""
     You are an expert Moroccan Legal AI Advisor using Vector Search (ChromaDB) and SGG Official Legislation.
     
-    Retrieved Statutory Legal Framework (Official Laws):
+    {doc_instruction}
+
+    Retrieved Statutory Legal Framework (Official Laws from Database):
     {formatted_context}
-    {uploaded_doc_prompt}
     
     Instructions:
     1. Answer in fluent, academically sound Arabic (Right-to-Left context).
-    2. If a user document is attached, analyze its compliance against Moroccan laws.
-    3. Cite exact Decree, Dahir, or Article numbers clearly without breaking paragraph flow.
-    4. End with a professional disclaimer stating this is an AI legal reference for guidance.
+    2. NEVER tell the user that you cannot process uploaded files or attachments, as the text IS provided to you above.
+    3. If the user asks about the attached document, summarize its content, verify its legal compliance with Moroccan law, and highlight any clauses or risks.
+    4. Cite exact Decree, Dahir, or Article numbers clearly.
+    5. End with a professional legal disclaimer stating this is an AI reference for guidance.
     """
 
     messages_payload = [{"role": "system", "content": system_prompt}]
@@ -272,7 +284,7 @@ if user_input:
                 for src in sources_ui:
                     st.markdown(src)
 
-        with st.spinner("جاري تحليل الطلب والبحث الدلالي في الجريدة الرسمية..."):
+        with st.spinner("جاري قراءة الوثيقة والتحليل القانوني عبر الجريدة الرسمية..."):
             try:
                 response = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
