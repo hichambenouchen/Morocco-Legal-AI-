@@ -1,4 +1,6 @@
 streamlit
 groq
 python-docx
-fpdf2
+pypdf
+chromadb
+sentence-transformers
