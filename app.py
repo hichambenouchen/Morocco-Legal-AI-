@@ -35,7 +35,7 @@ if "language" not in st.session_state:
     st.session_state.language = "العربية"
 
 # ---------------------------------------------------------
-# 3. شريط اختيار اللغة العلوي
+# 3. النصوص المترجمة للواجهة
 # ---------------------------------------------------------
 UI_TEXTS = {
     "العربية": {
@@ -76,14 +76,15 @@ UI_TEXTS = {
     }
 }
 
-lang_col1, lang_col2 = st.columns([7, 3])
-
-with lang_col2:
+# ---------------------------------------------------------
+# 4. القائمة الجانبية (Sidebar) - اختيار اللغة والإعدادات
+# ---------------------------------------------------------
+with st.sidebar:
+    st.header("🌐 Language / اللغة")
     selected_lang = st.selectbox(
-        "🌐 Language / اللغة / Langue",
+        "اختر لغة الواجهة والتحليل:",
         options=["🇲🇦 العربية", "🇫🇷 Français", "🇬🇧 English"],
         index=0 if st.session_state.language == "العربية" else (1 if st.session_state.language == "Français" else 2),
-        key="lang_selector"
     )
     
     if "العربية" in selected_lang:
@@ -98,74 +99,59 @@ with lang_col2:
         st.session_state.messages = []
         st.rerun()
 
-texts = UI_TEXTS[st.session_state.language]
-is_rtl = st.session_state.language == "العربية"
-direction_css = "rtl" if is_rtl else "ltr"
-text_align_css = "right" if is_rtl else "left"
-flex_dir_css = "row-reverse" if is_rtl else "row"
+    st.divider()
+    st.header("⚙️ Options")
+    texts = UI_TEXTS[st.session_state.language]
+    if st.button(texts["reset_btn"], use_container_width=True):
+        st.session_state.messages = []
+        st.session_state.uploaded_doc_text = ""
+        st.session_state.uploaded_doc_name = ""
+        st.rerun()
 
 # ---------------------------------------------------------
-# 4. تطبيق التنسيق الديناميكي (CSS) حسب اللغة
+# 5. CSS ناعم وآمن لمنع تداخل الأعمدة
 # ---------------------------------------------------------
+is_rtl = st.session_state.language == "العربية"
+direction = "rtl" if is_rtl else "ltr"
+text_align = "right" if is_rtl else "left"
+
 st.markdown(
     f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
 
-    html, body, [class*="css"] {{
-        font-family: 'Cairo', sans-serif !important;
-        direction: {direction_css} !important;
+    /* تطبيق الخط بدون كسر اتجاه الهيكل الأساسي لـ Streamlit */
+    p, h1, h2, h3, div {{
+        font-family: 'Cairo', sans-serif;
     }}
 
-    #MainMenu, footer, header {{visibility: hidden;}}
-
-    .block-container {{
-        padding-top: 1rem !important;
-        padding-bottom: 7rem !important;
-        max-width: 1100px !important;
-    }}
-
-    .stChatMessage, .stChatMessage p, .stMarkdown, .stMarkdown p, .stMarkdown div {{
-        direction: {direction_css} !important;
-        text-align: {text_align_css} !important;
-    }}
-
-    .stChatMessage {{
-        flex-direction: {flex_dir_css} !important;
-        gap: 12px !important;
-    }}
-
+    /* البطاقات الرئيسية */
     .hero-header {{
         background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e40af 100%);
-        border-radius: 18px;
-        padding: 24px 28px;
+        border-radius: 16px;
+        padding: 24px;
         color: white;
-        margin-bottom: 15px;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-        direction: {direction_css} !important;
-        text-align: {text_align_css} !important;
+        margin-bottom: 20px;
+        direction: {direction};
+        text-align: {text_align};
     }}
     
     .hero-title {{
         font-size: 1.8rem;
-        font-weight: 900;
+        font-weight: 800;
         margin: 0;
-        color: #ffffff;
     }}
 
     .hero-subtitle {{
         font-size: 0.95rem;
         color: #cbd5e1;
-        margin-top: 6px;
+        margin-top: 8px;
     }}
 
-    div[data-element-id="stPopover"] > button {{
-        border-radius: 12px !important;
-        height: 44px !important;
-        border: 1px solid #cbd5e1 !important;
-        background-color: #f8fafc !important;
-        color: #1e293b !important;
-        font-weight: bold !important;
+    /* تنسيق فقاعات المحادثة */
+    .stChatMessage {{
+        direction: {direction} !important;
+        text-align: {text_align} !important;
     }}
     </style>
     """,
@@ -173,7 +159,7 @@ st.markdown(
 )
 
 # ---------------------------------------------------------
-# 5. بناء قاعدة البيانات المتجهة (ChromaDB)
+# 6. بناء قاعدة البيانات المتجهة (ChromaDB)
 # ---------------------------------------------------------
 FULL_LEGAL_CORPUS = [
     {"id": "doc1", "law": "مرسوم الصفقات العمومية - المادة 4 و 5", "category": "صفقات عمومية", "text": "تخضع الصفقات العمومية لمبادئ حرية الوصول إلى الطلبية العمومية، المساواة في التعامل مع المتنافسين، والشفافية في اختيارات صاحب المشروع."},
@@ -206,7 +192,7 @@ def semantic_search(query, top_k=3):
     return retrieved
 
 # ---------------------------------------------------------
-# 6. قراءة واستخراج النصوص
+# 7. قراءة واستخرج النصوص
 # ---------------------------------------------------------
 def clean_text(text):
     if not text:
@@ -263,18 +249,7 @@ def extract_relevant_snippets(query, full_text, top_n=3, chunk_size=1200):
         return "NO_DIRECT_MATCH"
 
 # ---------------------------------------------------------
-# 7. القائمة الجانبية (Sidebar)
-# ---------------------------------------------------------
-with st.sidebar:
-    st.header("⚙️ Options")
-    if st.button(texts["reset_btn"], use_container_width=True):
-        st.session_state.messages = []
-        st.session_state.uploaded_doc_text = ""
-        st.session_state.uploaded_doc_name = ""
-        st.rerun()
-
-# ---------------------------------------------------------
-# 8. الهيدر والرسائل
+# 8. عرض البانر والمحادثات
 # ---------------------------------------------------------
 st.markdown(
     f"""
@@ -294,9 +269,9 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # ---------------------------------------------------------
-# 9. شريط الإدخال
+# 9. شريط الإدخال المدمج
 # ---------------------------------------------------------
-col_file, col_input = st.columns([1.5, 8.5], vertical_alignment="bottom")
+col_file, col_input = st.columns([2, 8], vertical_alignment="bottom")
 
 with col_file:
     with st.popover(texts["attach_btn"], use_container_width=True):
