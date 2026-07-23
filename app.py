@@ -51,7 +51,7 @@ st.markdown(
         border-radius: 18px;
         padding: 24px 28px;
         color: white;
-        margin-bottom: 20px;
+        margin-bottom: 15px;
         box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
         direction: rtl !important;
         text-align: right !important;
@@ -70,6 +70,7 @@ st.markdown(
         margin-top: 6px;
     }
 
+    /* تنسيق زر الإرفاق */
     div[data-element-id="stPopover"] > button {
         border-radius: 12px !important;
         height: 44px !important;
@@ -99,13 +100,28 @@ if "language" not in st.session_state:
     st.session_state.language = "العربية"
 
 # ---------------------------------------------------------
-# 3. محرك البحث المتجهي العام (ChromaDB Vector Store)
+# 3. شريط اختيار اللغات العلوي مع الأيقونات 🌐
+# ---------------------------------------------------------
+lang_col1, lang_col2 = st.columns([8, 2])
+
+with lang_col2:
+    selected_lang = st.selectbox(
+        "🌐 اللغة / Langue",
+        options=["🇲🇦 العربية", "🇫🇷 Français"],
+        index=0 if st.session_state.language == "العربية" else 1,
+        key="lang_selector"
+    )
+    # تحديث متغير اللغة
+    st.session_state.language = "العربية" if "العربية" in selected_lang else "Français"
+
+# ---------------------------------------------------------
+# 4. بناء قاعدة البيانات المتجهة (ChromaDB)
 # ---------------------------------------------------------
 FULL_LEGAL_CORPUS = [
     {"id": "doc1", "law": "مرسوم الصفقات العمومية - المادة 4 و 5", "category": "صفقات عمومية", "text": "تخضع الصفقات العمومية لمبادئ حرية الوصول إلى الطلبية العمومية، المساواة في التعامل مع المتنافسين، والشفافية في اختيارات صاحب المشروع."},
     {"id": "doc2", "law": "قانون الوظيفة العمومية - اللجان المتساوية الأعضاء", "category": "وظيفة عمومية", "text": "تحدث في كل إدارة عمومية لجان إدارية متساوية الأعضاء تختص بالنظر في الترقية والعقوبات التأديبية للموظفين العموميين وتتكون من ممثلين للإدارة وممثلين للموظفين."},
     {"id": "doc3", "law": "مدونة الشغل - المادة 13", "category": "شغل", "text": "تحدد فترة التجربة بالنسبة للعقود غير محددة المدة في: 3 أشهر للأطر، شهر ونصف للمستخدمين، و15 يوما للعمال."},
-    {"id": "doc4", "law": "مدونة الشغل - المادة 464 (مندوبو الأجراء)", "category": "شغل", "text": "يجب انتخاب مندوبي الأجراء في جميع المؤسسات التي تشغل اعتيادياً ما لا يقل عن عشرة أجراء أجراء دائمين."},
+    {"id": "doc4", "law": "مدونة الشغل - المادة 464 (مندوبو الأجراء)", "category": "شغل", "text": "يجب انتخاب مندوبي الأجراء في جميع المؤسسات التي تشغل اعتيادياً ما لا يقل عن عشرة أجراء دائمين."},
 ]
 
 @st.cache_resource
@@ -132,7 +148,7 @@ def semantic_search(query, top_k=3):
     return retrieved
 
 # ---------------------------------------------------------
-# 4. دالة قراءة وتنظيف النصوص وتقسيمها الذكي
+# 5. استخراج النصوص وتقسيمها
 # ---------------------------------------------------------
 def clean_text(text):
     if not text:
@@ -165,17 +181,13 @@ def extract_text_from_file(uploaded_file):
         st.error(f"خطأ في قراءة الملف: {e}")
     return clean_text(text)
 
-# البحث الدقيق الموجه داخل الملف
 def extract_relevant_snippets(query, full_text, top_n=3, chunk_size=1200):
     if not full_text:
         return ""
     if len(full_text) <= chunk_size:
         return full_text
 
-    # تقسيم الملف الضخم إلى فقرات معقولة
     chunks = [full_text[i:i+chunk_size] for i in range(0, len(full_text), chunk_size - 200)]
-    
-    # فلترة الكلمات الأساسية
     keywords = [k for k in re.findall(r'\w+', query) if len(k) > 2]
     
     scored_chunks = []
@@ -187,23 +199,15 @@ def extract_relevant_snippets(query, full_text, top_n=3, chunk_size=1200):
     scored_chunks.sort(key=lambda x: x[0], reverse=True)
     
     if scored_chunks:
-        # أخذ أفضل الفقرات المطابقة فقط لمنع تكرار الحشو
         selected = [item[1] for item in scored_chunks[:top_n]]
         return "\n--- فقرة مطابقة ---\n".join(selected)
     else:
-        # إذا لم يُعثر على مطابقة في الملف
         return "NO_DIRECT_MATCH"
 
 # ---------------------------------------------------------
-# 5. القائمة الجانبية
+# 6. القائمة الجانبية (Sidebar)
 # ---------------------------------------------------------
 with st.sidebar:
-    st.header("🌐 إعدادات اللغة / Langue")
-    lang_choice = st.radio("اختر لغة الإجابة / Langue المعتمدة:", ["العربية", "Français"], index=0 if st.session_state.language == "العربية" else 1)
-    st.session_state.language = lang_choice
-
-    st.divider()
-
     st.header("⚙️ خيارات الجلسة")
     if st.button("🗑️ إعادة ضبط الجلسة والملفات", use_container_width=True):
         st.session_state.messages = []
@@ -212,7 +216,7 @@ with st.sidebar:
         st.rerun()
 
 # ---------------------------------------------------------
-# 6. الواجهة والرسالة الأولى
+# 7. الهيدر والترحيب
 # ---------------------------------------------------------
 st.markdown(
     """
@@ -233,7 +237,7 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # ---------------------------------------------------------
-# 7. شريط الإدخال المدمج
+# 8. شريط الإدخال المدمج
 # ---------------------------------------------------------
 col_file, col_input = st.columns([1.5, 8.5], vertical_alignment="bottom")
 
@@ -256,7 +260,7 @@ with col_input:
     user_input = st.chat_input(placeholder_text)
 
 # ---------------------------------------------------------
-# 8. معالجة السؤال والتحليل الذكي الصارم
+# 9. معالجة السؤال والتحليل الذكي
 # ---------------------------------------------------------
 api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
 if not api_key:
@@ -270,7 +274,6 @@ if user_input:
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # 1. تحليل الملف المرفوع
     doc_snippet = ""
     match_found = True
     if st.session_state.uploaded_doc_text:
@@ -279,11 +282,9 @@ if user_input:
             match_found = False
             doc_snippet = ""
 
-    # 2. البحث المرجعي في التشريع
     retrieved_docs = semantic_search(user_input, top_k=3)
     formatted_context = "\n".join([f"- {d['law']}: {d['text']}" for d in retrieved_docs])
 
-    # 3. صياغة التعليمات الصارمة لمنع الهلوسة والتكرار
     doc_instruction = ""
     if st.session_state.uploaded_doc_text:
         if match_found and doc_snippet:
@@ -312,7 +313,7 @@ if user_input:
 
     CRITICAL RULES:
     1. NEVER repeat paragraphs or sentences. Present a clean, well-structured response.
-    2. Do NOT invent concepts (e.g., do NOT attribute Public Sector terms like "اللجان المتساوية الأعضاء" to the Private Sector Code "مدونة الشغل" unless making a legal distinction).
+    2. Do NOT invent concepts (e.g., do NOT attribute Public Sector terms like "اللجان المتساوية الأعضاء" to the Private Sector Code "modouana" unless making a legal distinction).
     3. Respond directly, accurately, and professionally in {st.session_state.language}.
     """
 
@@ -326,7 +327,7 @@ if user_input:
                 response = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=messages_payload,
-                    temperature=0.0,  # Zero temperature eliminates creativity/hallucination
+                    temperature=0.0,
                 )
                 bot_reply = response.choices[0].message.content
                 st.markdown(bot_reply)
