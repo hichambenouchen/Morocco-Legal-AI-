@@ -10,74 +10,13 @@ from groq import Groq
 import streamlit as st
 
 # ---------------------------------------------------------
-# 1. إعدادات الصفحة والتصميم
+# 1. إعدادات الصفحة الأساسية
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="الموسوعة القانونية المغربية | Moroccan Legal AI",
     page_icon="⚖️",
     layout="wide",
     initial_sidebar_state="expanded",
-)
-
-st.markdown(
-    """
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
-
-    html, body, [class*="css"] {
-        font-family: 'Cairo', sans-serif !important;
-    }
-
-    #MainMenu, footer, header {visibility: hidden;}
-
-    .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 7rem !important;
-        max-width: 1100px !important;
-    }
-
-    .stChatMessage, .stChatMessage p, .stMarkdown, .stMarkdown p, .stMarkdown div {
-        direction: auto !important;
-    }
-
-    .stChatMessage {
-        gap: 12px !important;
-    }
-
-    .hero-header {
-        background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e40af 100%);
-        border-radius: 18px;
-        padding: 24px 28px;
-        color: white;
-        margin-bottom: 15px;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-    }
-    
-    .hero-title {
-        font-size: 1.8rem;
-        font-weight: 900;
-        margin: 0;
-        color: #ffffff;
-    }
-
-    .hero-subtitle {
-        font-size: 0.95rem;
-        color: #cbd5e1;
-        margin-top: 6px;
-    }
-
-    /* تنسيق زر الإرفاق */
-    div[data-element-id="stPopover"] > button {
-        border-radius: 12px !important;
-        height: 44px !important;
-        border: 1px solid #cbd5e1 !important;
-        background-color: #f8fafc !important;
-        color: #1e293b !important;
-        font-weight: bold !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
 )
 
 # ---------------------------------------------------------
@@ -96,7 +35,7 @@ if "language" not in st.session_state:
     st.session_state.language = "العربية"
 
 # ---------------------------------------------------------
-# 3. اختيار اللغات والترجمة الديناميكية للواجهة
+# 3. شريط اختيار اللغة العلوي
 # ---------------------------------------------------------
 UI_TEXTS = {
     "العربية": {
@@ -156,13 +95,85 @@ with lang_col2:
 
     if st.session_state.language != current_lang:
         st.session_state.language = current_lang
-        st.session_state.messages = []  # إعادة تعيين الترحيب عند تغيير اللغة
+        st.session_state.messages = []
         st.rerun()
 
 texts = UI_TEXTS[st.session_state.language]
+is_rtl = st.session_state.language == "العربية"
+direction_css = "rtl" if is_rtl else "ltr"
+text_align_css = "right" if is_rtl else "left"
+flex_dir_css = "row-reverse" if is_rtl else "row"
 
 # ---------------------------------------------------------
-# 4. بناء قاعدة البيانات المتجهة (ChromaDB)
+# 4. تطبيق التنسيق الديناميكي (CSS) حسب اللغة
+# ---------------------------------------------------------
+st.markdown(
+    f"""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
+
+    html, body, [class*="css"] {{
+        font-family: 'Cairo', sans-serif !important;
+        direction: {direction_css} !important;
+    }}
+
+    #MainMenu, footer, header {{visibility: hidden;}}
+
+    .block-container {{
+        padding-top: 1rem !important;
+        padding-bottom: 7rem !important;
+        max-width: 1100px !important;
+    }}
+
+    .stChatMessage, .stChatMessage p, .stMarkdown, .stMarkdown p, .stMarkdown div {{
+        direction: {direction_css} !important;
+        text-align: {text_align_css} !important;
+    }}
+
+    .stChatMessage {{
+        flex-direction: {flex_dir_css} !important;
+        gap: 12px !important;
+    }}
+
+    .hero-header {{
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e40af 100%);
+        border-radius: 18px;
+        padding: 24px 28px;
+        color: white;
+        margin-bottom: 15px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        direction: {direction_css} !important;
+        text-align: {text_align_css} !important;
+    }}
+    
+    .hero-title {{
+        font-size: 1.8rem;
+        font-weight: 900;
+        margin: 0;
+        color: #ffffff;
+    }}
+
+    .hero-subtitle {{
+        font-size: 0.95rem;
+        color: #cbd5e1;
+        margin-top: 6px;
+    }}
+
+    div[data-element-id="stPopover"] > button {{
+        border-radius: 12px !important;
+        height: 44px !important;
+        border: 1px solid #cbd5e1 !important;
+        background-color: #f8fafc !important;
+        color: #1e293b !important;
+        font-weight: bold !important;
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ---------------------------------------------------------
+# 5. بناء قاعدة البيانات المتجهة (ChromaDB)
 # ---------------------------------------------------------
 FULL_LEGAL_CORPUS = [
     {"id": "doc1", "law": "مرسوم الصفقات العمومية - المادة 4 و 5", "category": "صفقات عمومية", "text": "تخضع الصفقات العمومية لمبادئ حرية الوصول إلى الطلبية العمومية، المساواة في التعامل مع المتنافسين، والشفافية في اختيارات صاحب المشروع."},
@@ -195,7 +206,7 @@ def semantic_search(query, top_k=3):
     return retrieved
 
 # ---------------------------------------------------------
-# 5. استخراج النصوص وتقسيمها
+# 6. قراءة واستخراج النصوص
 # ---------------------------------------------------------
 def clean_text(text):
     if not text:
@@ -252,7 +263,7 @@ def extract_relevant_snippets(query, full_text, top_n=3, chunk_size=1200):
         return "NO_DIRECT_MATCH"
 
 # ---------------------------------------------------------
-# 6. القائمة الجانبية (Sidebar)
+# 7. القائمة الجانبية (Sidebar)
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("⚙️ Options")
@@ -263,13 +274,11 @@ with st.sidebar:
         st.rerun()
 
 # ---------------------------------------------------------
-# 7. الهيدر والترحيب باللغة المختارة
+# 8. الهيدر والرسائل
 # ---------------------------------------------------------
-text_align_style = "rtl" if st.session_state.language == "العربية" else "ltr"
-
 st.markdown(
     f"""
-    <div class="hero-header" style="text-align: {text_align_style}; direction: {text_align_style};">
+    <div class="hero-header">
         <div class="hero-title">{texts['title']}</div>
         <div class="hero-subtitle">{texts['subtitle']}</div>
     </div>
@@ -285,7 +294,7 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # ---------------------------------------------------------
-# 8. شريط الإدخال المدمج
+# 9. شريط الإدخال
 # ---------------------------------------------------------
 col_file, col_input = st.columns([1.5, 8.5], vertical_alignment="bottom")
 
@@ -307,7 +316,7 @@ with col_input:
     user_input = st.chat_input(texts["placeholder"])
 
 # ---------------------------------------------------------
-# 9. معالجة السؤال والتحليل الذكي
+# 10. المعالجة الذكية للإجابة
 # ---------------------------------------------------------
 api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
 if not api_key:
@@ -361,7 +370,7 @@ if user_input:
     CRITICAL RULES:
     1. Reply fully in the target language: {st.session_state.language}.
     2. NEVER repeat paragraphs or sentences. Present a clean, well-structured response.
-    3. Do NOT invent concepts (e.g., do NOT attribute Public Sector terms like "اللجان المتساوية الأعضاء" to Private Sector Code unless making a clear legal distinction).
+    3. Do NOT invent concepts.
     4. Respond directly, accurately, and professionally.
     """
 
