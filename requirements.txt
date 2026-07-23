@@ -7,3 +7,12 @@ arabic-reshaper
 python-bidi
 chromadb
 sentence-transformers
+streamlit
+groq
+chromadb
+sentence-transformers
+pypdf
+pdfplumber
+python-docx
+requests
+beautifulsoup4
