@@ -10,22 +10,22 @@ from groq import Groq
 import streamlit as st
 
 # ---------------------------------------------------------
-# 1. إعدادات الصفحة الأساسية
+# 1. إعدادات الصفحة والتطبيق
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="المستشار القانوني الذكي الشامل | JurisConsult AI Morocco",
+    page_title="الموسوعة القانونية المغربية الشاملة | JurisConsult Enterprise RAG",
     page_icon="⚖️",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
 # ---------------------------------------------------------
-# 2. تصميم CSS احترافي
+# 2. تصميم الواجهة (Advanced CSS Theme)
 # ---------------------------------------------------------
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Inter:wght@400;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Inter:wght@400;600&display=swap');
 
     html, body, [class*="css"] {
         font-family: 'Cairo', 'Inter', sans-serif !important;
@@ -38,83 +38,78 @@ st.markdown(
     .block-container {
         padding-top: 1rem !important;
         padding-bottom: 6rem !important;
-        max-width: 1150px !important;
+        max-width: 1200px !important;
     }
 
-    /* Hero Header Styling */
     .hero-header {
-        background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
-        border-radius: 16px;
-        padding: 28px 32px;
+        background: linear-gradient(135deg, #091e3e 0%, #1e3c72 50%, #2a5298 100%);
+        border-radius: 18px;
+        padding: 32px 36px;
         color: white;
         margin-bottom: 25px;
-        box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 12px 30px -5px rgba(15, 23, 42, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.15);
     }
     
     .hero-title {
         font-size: 2.3rem;
-        font-weight: 800;
+        font-weight: 900;
         margin: 0;
         color: #ffffff;
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 14px;
     }
 
     .hero-subtitle {
-        font-size: 1rem;
-        color: #93c5fd;
-        margin-top: 8px;
+        font-size: 1.02rem;
+        color: #cbd5e1;
+        margin-top: 10px;
         font-weight: 400;
+        line-height: 1.6;
     }
 
     .rag-badge {
-        background-color: #3b82f6;
+        background: linear-gradient(90deg, #2563eb, #3b82f6);
         color: white;
-        font-size: 0.75rem;
-        padding: 4px 10px;
+        font-size: 0.8rem;
+        padding: 5px 12px;
         border-radius: 20px;
-        font-weight: 600;
-        margin-right: 10px;
-        vertical-align: middle;
+        font-weight: 700;
+        letter-spacing: 0.5px;
     }
 
-    /* Quick Action Buttons */
     .stButton>button {
         border-radius: 10px !important;
-        border: 1px solid #e2e8f0 !important;
-        transition: all 0.2s ease !important;
+        border: 1px solid #cbd5e1 !important;
+        font-weight: 600 !important;
+        transition: all 0.25s ease !important;
     }
 
     .stButton>button:hover {
-        border-color: #2563eb !important;
-        color: #2563eb !important;
-        background-color: #f8fafc !important;
+        border-color: #1d4ed8 !important;
+        color: #1d4ed8 !important;
+        background-color: #eff6ff !important;
+        transform: translateY(-1px);
     }
 
-    /* Chat Styling */
     .stChatMessage {
-        border-radius: 14px !important;
-        padding: 15px !important;
-        margin-bottom: 12px !important;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+        border-radius: 16px !important;
+        padding: 18px !important;
+        margin-bottom: 14px !important;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.04);
+        border: 1px solid #f1f5f9;
     }
 
-    /* Mobile Responsive */
     @media (max-width: 768px) {
-        [data-testid="stSidebar"] { display: none !important; }
-        [data-testid="collapsedControl"] { display: none !important; }
         .hero-header {
-            padding: 20px;
+            padding: 22px;
             text-align: center;
         }
         .hero-title {
             font-size: 1.6rem;
             justify-content: center;
-        }
-        .hero-subtitle {
-            font-size: 0.85rem;
+            flex-wrap: wrap;
         }
     }
     </style>
@@ -123,7 +118,7 @@ st.markdown(
 )
 
 # ---------------------------------------------------------
-# 3. محول اللغات الثلاثي
+# 3. إدارة اللغات الثلاثية
 # ---------------------------------------------------------
 if "lang" not in st.session_state:
     st.session_state.lang = "ar"
@@ -147,49 +142,49 @@ with col_lang2:
 
 TEXTS = {
     "ar": {
-        "title": "المستشار القانوني المغربي الشامل",
-        "subtitle": "نظام استرجاع سياقي ذكي (Full RAG) يغطي مدونة الشغل، مدونة الأسرة، القانون الجنائي، الالتزامات والعقود، والمسطرة المدنية",
-        "welcome": "مرحباً بك! أنا مستشارك القانوني المغربي المعتمد بنظام RAG الشامل. اطرح أي استفسار قانوني وسأقوم بالبحث المباشر والمطابقة مع نصوص القوانين المغربية.",
-        "input_placeholder": "اطرح سؤالك القانوني (مثال: حقوق الأجير، الطلاق والنفقة، الكراء، العقوبات...)",
-        "quick_questions": "💡 استفسارات شائعة في مختلف القوانين:",
-        "q1": "ما هي حقوق الأجير عند الفصل التعسفي حسب مدونة الشغل؟",
-        "q2": "ما هي أنواع الطلاق وإجراءات النفقة في مدونة الأسرة؟",
-        "q3": "ما هي الشروط القانونية لإنهاء عقد الكراء السكني؟",
-        "tools": "🛠️ أدوات إدارة الجلسة وتحميل التقارير",
-        "reset": "🗑️ مسح المحادثة",
-        "download_txt": "📥 تقرير نصي (TXT)",
-        "download_word": "📄 تقرير وورد (DOCX)",
-        "rag_sources": "📚 النصوص والمواد القانونية المسترجعة تلقائياً لاستفسارك:",
+        "title": "الموسوعة القانونية المغربية الشاملة",
+        "subtitle": "مرجع استرجاع قانوني ذكي (Enterprise RAG) مستند إلى قاعدة بيانات الأمانة العامة للحكومة والجريدة الرسمية المغربية: الصفقات العمومية، الوظيفة العمومية، الشغل، الأسرة، الجنائي، العقود، والكراء.",
+        "welcome": "مرحباً بك! أنا مستشارك القانوني المستند لنصوص الجريدة الرسمية والأمانة العامة للحكومة (SGG). اطرح استفسارك القانوني وسيتم فحص المواد التشريعية ومطابقتها مباشرة.",
+        "input_placeholder": "اطرح سؤالك (مثال: طلبات العروض في الصفقات العمومية، المساطر التأديبية في الوظيفة العمومية، الشيك بدون رصيد...)",
+        "quick_questions": "💡 استفسارات قانونية متخصصة ومستحدثة:",
+        "q1": "ما هي قواعد ومساطر إبرام الصفقات العمومية حسب مرسوم 2.22.431؟",
+        "q2": "ما هي الحقوق والمساطر التأديبية للموظف العمومي حسب نظام الوظيفة العمومية؟",
+        "q3": "ما هي الشروط والأسباب القانونية لإفراغ المحل التجاري أو السكني؟",
+        "tools": "🛠️ إدارة الجلسة وتصدير التقارير الرسمية",
+        "reset": "🗑️ إعادة ضبط المحادثة",
+        "download_txt": "📥 تصدير التقرير (TXT)",
+        "download_word": "📄 تصدير التقرير (DOCX)",
+        "rag_sources": "📚 النصوص والمواد التشريعية المسترجعة من الجريدة الرسمية والأمانة العامة للحكومة:",
     },
     "fr": {
-        "title": "JurisConsult Maroc - Full RAG AI",
-        "subtitle": "Système de Recherche Juridique Intelligente (Code du Travail, Code de la Famille, Code Pénal, DOC, Procédure Civile)",
-        "welcome": "Bonjour ! Je suis votre assistant juridique marocain propulsé par RAG. Posez votre question pour une analyse comparative directe des textes de loi marocains.",
-        "input_placeholder": "Posez votre question (Licenciement, Divorce, Bruit/Voisinage, Contrats, Baux...)",
-        "quick_questions": "💡 Exemples de questions juridiques :",
-        "q1": "Quelles sont les indemnités de licenciement abusif ?",
-        "q2": "Quelles sont les conditions du divorce et de la pension alimentaire ?",
-        "q3": "Comment résilier légalement un contrat de bail d'habitation ?",
-        "tools": "🛠️ Outils & Téléchargement du Rapport",
+        "title": "JurisConsult Maroc - Legal RAG Suite",
+        "subtitle": "Système de recherche juridique complet basé sur le Bulletin Officiel et SGG : Marchés Publics, Fonction Publique, Travail, Famille, Pénal, DOC.",
+        "welcome": "Bienvenue sur la plateforme juridique marocaine basée sur les textes officiels du Bulletin Officiel (SGG).",
+        "input_placeholder": "Posez votre question (Marchés publics, Discipline Fonction Publique, Chèque sans provision...)",
+        "quick_questions": "💡 Exemples de requêtes juridiques :",
+        "q1": "Quelles sont les règles de passation des marchés publics (Décret 2.22.431) ?",
+        "q2": "Quels sont les droits et régimes disciplinaires de la fonction publique ?",
+        "q3": "Quelles sont les conditions d'éviction d'un bail commercial ou d'habitation ?",
+        "tools": "🛠️ Outils & Exportation du Rapport",
         "reset": "🗑️ Réinitialiser",
-        "download_txt": "📥 Rapport (TXT)",
-        "download_word": "📄 Rapport Word (DOCX)",
-        "rag_sources": "📚 Articles juridiques extraits pour cette requête :",
+        "download_txt": "📥 Exporter en TXT",
+        "download_word": "📄 Exporter en Word (DOCX)",
+        "rag_sources": "📚 Textes législatifs extraits du Bulletin Officiel (SGG) :",
     },
     "en": {
-        "title": "Moroccan Comprehensive Legal RAG AI",
-        "subtitle": "Advanced Full RAG Legal Search covering Labor Law, Family Law, Penal Code, DOC, and Civil Procedure",
-        "welcome": "Welcome! I am your Moroccan AI Legal Advisor powered by Full RAG. Ask any legal query and I will retrieve directly relevant Moroccan statutes.",
-        "input_placeholder": "Type your legal question (Employment, Family, Tenancy, Contracts, Criminal...)",
-        "quick_questions": "💡 Frequent Law Queries:",
-        "q1": "What compensation is due for wrongful termination under Labor Code?",
-        "q2": "What are the rules regarding divorce and child support under Moudawana?",
-        "q3": "What are the legal steps to terminate a residential lease contract?",
-        "tools": "🛠️ Session Tools & Document Downloads",
+        "title": "Moroccan Legal Enterprise RAG Suite",
+        "subtitle": "Comprehensive Legal AI backed by the Secretariat General of the Government (SGG) and Official Gazette: Public Procurement, Civil Service, Labor, Family, Criminal Code.",
+        "welcome": "Welcome to the Moroccan Comprehensive Legal System referencing the Official Gazette.",
+        "input_placeholder": "Type your query (Public procurement procedures, Civil Service disciplinary rules, Lease eviction...)",
+        "quick_questions": "💡 Frequent Legal Queries:",
+        "q1": "What are the key rules in the Public Procurement Decree 2.22.431?",
+        "q2": "What are the disciplinary procedures under the Moroccan Civil Service Code?",
+        "q3": "What are the statutory grounds for commercial/residential eviction?",
+        "tools": "🛠️ Session Management & Export Tools",
         "reset": "🗑️ Reset Conversation",
         "download_txt": "📥 Export Report (TXT)",
         "download_word": "📄 Export Report (DOCX)",
-        "rag_sources": "📚 Retrieved Statutory Legal Context:",
+        "rag_sources": "📚 Retrieved Statutory Legal Texts (Official Gazette):",
     },
 }
 
@@ -202,7 +197,7 @@ st.markdown(
     f"""
     <div class="hero-header">
         <div class="hero-title">
-            ⚖️ {current_texts['title']} <span class="rag-badge">Full RAG Engine 2.0</span>
+            ⚖️ {current_texts['title']} <span class="rag-badge">SGG & Official Gazette Integrated</span>
         </div>
         <div class="hero-subtitle">{current_texts['subtitle']}</div>
     </div>
@@ -211,45 +206,48 @@ st.markdown(
 )
 
 # ---------------------------------------------------------
-# 5. قاعدة المعرفة المتكاملة ومحرك RAG
+# 5. الترسانة القانونية الكاملة (بما فيها الصفقات والوظيفة العمومية)
 # ---------------------------------------------------------
 FULL_LEGAL_CORPUS = [
-    # --- مدونة الشغل (القانون 65.99) ---
-    {"law": "مدونة الشغل - المادة 13", "category": "شغل", "text": "تحدد فترة التجربة بالنسبة للعقود غير محددة المدة في: 3 أشهر للأطر وما ماثلهم، شهر ونصف للمستخدمين، و15 يوما للعمال. يمكن تجديد فترة التجربة مرة واحدة فقط."},
-    {"law": "مدونة الشغل - المادة 61", "category": "شغل", "text": "يستحق الأجير المرتبط بعقد غير محدد المدة تعويضا عن الفصل التعسفي، ما لم يرتكب خطأ جسيما. ويشمل التعويض: التعويض عن الفصل، التعويض عن مهلة الإشعار، والتعويض عن الضرر."},
-    {"law": "مدونة الشغل - المادة 62", "category": "شغل", "text": "قبل فصل الأجير، يجب أن تتاح له فرصة الدفاع عن نفسه باستماعه من طرف المشغل أو من ينيبه بحضور مندوب الأجراء أو الممثل النقابي في أجل لا يتعدى 8 أيام من تاريخ ثبوت الفعل."},
-    {"law": "مدونة الشغل - المادة 152", "category": "شغل", "text": "تتمتع الأجيرة بمناسبة الحمل والولادة برخصة أمومة مدتها 14 أسبوعاً متصلة مؤدى عنها. كما يستفيد الأب الأجير من رخصة مدتها 3 أيام بمناسبة كل ولادة."},
-    {"law": "مدونة الشغل - المادة 196", "category": "شغل", "text": "تعتبر ساعات إضافية الساعات الفائضة عن النشاط العادي للأجير، وتؤدى بقسط يزيد بـ 25% نهاراً و50% ليلاً، وترتفع إلى 50% نهارا و100% ليلا في الأعياد والعطل."},
-    {"law": "مدونة الشغل - المادة 231", "category": "شغل", "text": "يستحق الأجير عطلة سنوية مؤدى عنها قدرها يوم ونصف يوم من العمل الفعلي عن كل شهر من الخدمة الفعلية بعد قضائه 6 أشهر متصلة في المقاولة."},
+    # --- 1. مرسوم الصفقات العمومية (مرسوم رقم 2.22.431) ---
+    {"law": "مرسوم الصفقات العمومية - المادة 4 و 5", "category": "صفقات عمومية", "text": "تخضع الصفقات العمومية لمبادئ حرية الوصول إلى الطلبية العمومية، المساواة في التعامل مع المتنافسين، والشفافية في اختيارات صاحب المشروع. وتشمل الصفقات: صفقة أشغال، توريدات، أو خدمات."},
+    {"law": "مرسوم الصفقات العمومية - المادة 16 و 17", "category": "صفقات عمومية", "text": "تتم طريقة إبرام الصفقات العمومية عن طريق طلبات العروض (مفتوح أو محدود)، المباراة، أو المسطرة التفاوضية. يعتبر طلب العروض المفتوح هو الأصل."},
+    {"law": "مرسوم الصفقات العمومية - المادة 40", "category": "صفقات عمومية", "text": "يستوجب على المتنافسين تقديم ضمان مؤقت للقبول في الصفقات العمومية، ثم يتوجب على النائل إيداع ضمان نهائي لضمان تنفيذه السليم للالتزامات التعاقدية."},
+    {"law": "مرسوم الصفقات العمومية - المادة 136", "category": "صفقات عمومية", "text": "يمكن للمتنافسين تقديم شكايات ورسائل طعن للجنة الصفقات العمومية أو السلطة الحكومية المعنية في حال الإخلال بقواعد المنافسة والشفافية."},
 
-    # --- مدونة الأسرة (القانون 70.03) ---
-    {"law": "مدونة الأسرة - المادة 4", "category": "أسرة", "text": "الزواج هو ميثاق تراض وترابط شرعي بين رجل وامرأة على وجه الدوام غايته الإحصان والعفاف وإنشاء أسرة مستقرة برعاية الزوجين."},
-    {"law": "مدونة الأسرة - المادة 78", "category": "أسرة", "text": "الطلاق حل ميثاق الزوجية يمارسه الزوج والزوجة، كل بحسب شروطه تحت مراقبة القاضي ووفق أحكام المدونة."},
-    {"law": "مدونة الأسرة - المادة 84", "category": "أسرة", "text": "تشتمل مستحقات الزوجة عند الطلاق على: الصداق المسمى إن كان مؤجلاً، ونفقة العدة، والمتعة التي تراعي مدة الزوجية والوضع المالي للزوج."},
-    {"law": "مدونة الأسرة - المادة 163", "category": "أسرة", "text": "الحضانة هي حفظ الولد مما يضره والقيم بفرضه ورعايته. وتمنح الحضانة للأم، ثم للأب، ثم لأم الأم، مع مراعاة مصلحة المحضون الفضلى."},
-    {"law": "مدونة الأسرة - المادة 189", "category": "أسرة", "text": "تشتمل النفقة على الغذاء والكسوة والعلاج والتعليم للمحضون وما يعتبر من الضروريات، وتراعى فيها سعة الملتزم بها وحال الملتزم له."},
+    # --- 2. النظام الأساسي العام للوظيفة العمومية (ظهير 1.58.008) ---
+    {"law": "قانون الوظيفة العمومية - المادة 2 و 13", "category": "وظيفة عمومية", "text": "الموظف هو كل شخص يعين في وظيفة دائمة ويرسم في إحدى درجات التسلسل الإداري للإدارات التابعة للدولة. والتوظيف يتم عبر المباريات للجميع بمساواة."},
+    {"law": "قانون الوظيفة العمومية - المادة 39 و 40", "category": "وظيفة عمومية", "text": "للموظف الحق في العطلة السنوية المؤدى عنها ومدتها شهر عن كل سنة عمل. كما يستفيد من رخص المرض (قصيرة، متوسطة، وطويلة المدى) ورخص الولادة والأمومة."},
+    {"law": "قانون الوظيفة العمومية - المادة 65 و 66", "category": "وظيفة عمومية", "text": "تحدد العقوبات التأديبية في درجتين: الأولى تشمل الإنذار والتوبيخ، والثانية تشمل الإنزلاق في الدرجة، الحرمان من الترقية، العزل بدون حرمان من التقاعد أو العزل مع الحرمان من التقاعد."},
+    {"law": "قانون الوظيفة العمومية - المادة 73", "category": "وظيفة عمومية", "text": "إذا ارتكب الموظف خطأ جسيماً سواء كان إخلالاً بالواجبات المهنية أو جريمة في حق القانون العام، جاز توقيفه فوراً من طرف السلطة التي لها حق التأديب مع خصم أجرته باستثناء التعويضات العائلية."},
 
-    # --- قانون الالتزامات والعقود (DOC) والكراء ---
-    {"law": "قانون الالتزامات والعقود - المادة 230", "category": "عقود", "text": "الالتزامات التعاقدية المنشأة على وجه صحيح تقوم مقام القانون بالنسبة إلى من أنشأوها، ولا تجوز إلغاؤها إلا بتراضيهما أو في الحالات التي ينص عليها القانون."},
-    {"law": "قانون الكراء السكني (67.12) - المادة 12", "category": "كراء", "text": "يلتزم المكري بتسليم المحل للمكتري وهو في حالة صالحة للاستعمال، ويضمن المكري للمكتري التعرضات والاستحقاقات التي تعكر انتفاعه بالمحل."},
-    {"law": "قانون الكراء السكني (67.12) - المادة 44", "category": "كراء", "text": "لا ينتهي عقد الكراء بقوة القانون إلا بعد الإشعار بالإفراغ وتوجيه إنذار المكري للمكتري بأجل لا يقل عن شهرين مع استناد الإفراغ لسبب مشروع قانوناً."},
-    {"law": "قانون الالتزامات والعقود - المادة 77", "category": "عقود", "text": "كل فعل يجرمه القانون يأتيه الإنسان عن علم واختيار ومن غير أن يسمح به القانون، أحدث ضرراً مادياً أو معنوياً للغير، يلتزم مرتكبه بتعويض هذا الضرر."},
+    # --- 3. مدونة الشغل (القانون 65.99) ---
+    {"law": "مدونة الشغل - المادة 13", "category": "شغل", "text": "تحدد فترة التجربة بالنسبة للعقود غير محددة المدة في: 3 أشهر للأطر وما ماثلهم، شهر ونصف للمستخدمين، و15 يوما للعمال."},
+    {"law": "مدونة الشغل - المادة 61 و 62", "category": "شغل", "text": "يستحق الأجير تعويضاً عن الفصل التعسفي ما لم يرتكب خطأ جسيماً. ويجب الاستماع إليه بحضور مندوب الأجراء في أجل لا يتعدى 8 أيام."},
+    {"law": "مدونة الشغل - المادة 196", "category": "شغل", "text": "تؤدى الساعات الإضافية بنسبة زيادة 25% نهاراً و50% ليلاً، وترتفع إلى 50% نهاراً و100% ليلاً في أيام العطل والأعياد."},
 
-    # --- القانون الجنائي المغربي ---
-    {"law": "القانون الجنائي - المادة 2", "category": "جنائي", "text": "لا يسوغ لأحد أن يعتذر بجهل التشريع الجنائي، ولا يعاقب أحد على فعل لم يكن يعتبر جريمة بمقتضى القانون وقت ارتكابه."},
-    {"law": "القانون الجنائي - المادة 505", "category": "جنائي", "text": "من اختلس عمداً مالاً مملوكاً للغير يعتبر سارقاً، ويعاقب بالسجن من سنة إلى خمس سنوات وغرامة مالية."},
-    {"law": "القانون الجنائي - المادة 540", "category": "جنائي", "text": "يعاقب بالحبس من سنة إلى خمس سنوات وغرامة كل من استعمل الاحتيال والخداع لإيقاع شخص في الغلط وسلبه أموالاً أو ممتلكات."},
+    # --- 4. مدونة الأسرة (القانون 70.03) ---
+    {"law": "مدونة الأسرة - المادة 78 و 84", "category": "أسرة", "text": "الطلاق حل ميثاق الزوجية يمارس تحت مراقبة القاضي. وتشتمل مستحقات الزوجة على الصداق المؤجل، نفقة العدة، والمتعة المقدرة بمدة الزوجية ووضع الزوج."},
+    {"law": "مدونة الأسرة - المادة 94", "category": "أسرة", "text": "يقدم طلب طلاق الشقاق للمحكمة وتجري محاولة الصلح عبر حكمين، وإن تعذر الصلح تحكم المحكمة بالطلاق وتحدد مستحقات الطرفين."},
 
-    # --- قانون المسطرة المدنية ---
-    {"law": "قانون المسطرة المدنية - المادة 32", "category": "مسطرة", "text": "تُقدم الدعوى أمام المحكمة الابتدائية بمقال مكتوب أو بتصريح شفوي يدلي به المدعي أمام كتابة ضبط المحكمة."},
-    {"law": "قانون المسطرة المدنية - المادة 134", "category": "مسطرة", "text": "تحدد آجال الاستئناف في ثلاثين يوماً من تاريخ التبليغ الرسمي للحكم المطعون فيه، ما لم ينص القانون على خلاقه."},
+    # --- 5. قانون الالتزامات والعقود (DOC) والكراء ---
+    {"law": "قانون الالتزامات والعقود - المادة 230", "category": "عقود", "text": "الالتزامات التعاقدية المنشأة على وجه صحيح تقوم مقام القانون بالنسبة إلى من أنشأوها، ولا تجوز إلغاؤها إلا بتراضيهما أو القانون."},
+    {"law": "قانون الكراء السكني (67.12) - المادة 44", "category": "كراء", "text": "لا ينتهي عقد الكراء إلا بعد إنذار بالإفراغ يبين السبب المشروع بمهلة لا تقل عن شهرين."},
+    {"law": "قانون الكراء التجاري (49.16) - المادة 7", "category": "كراء تجاري", "text": "يستحق المكتري تعويضاً كاملاً عن الإفراغ يعادل الضرر الحاصل عن فقدان الأصل التجاري ما لم يستند الإفراغ لعدم أداء الكراء أو البناء."},
+
+    # --- 6. القانون الجنائي والمسطرة الجنائية ---
+    {"law": "قانون المسطرة الجنائية - المادة 66", "category": "مسطرة جنائية", "text": "تحدد مدة الحراسة النظرية في الجرائم العادية في 48 ساعة قابلة للتمديد بـ 24 ساعة بإذن النيابة العامة، وللمحتجز حق الاتصال بمحامٍ."},
+    {"law": "القانون الجنائي - المادة 540", "category": "جنائي", "text": "يعاقب بالحبس من سنة إلى خمس سنوات وغرامة كل من استعمل الاحتيال والخداع لإيقاع شخص في الغلط وسلبه أموالاً (جريمة النصب)."},
+
+    # --- 7. مدونة التجارة والقانون التجاري ---
+    {"law": "مدونة التجارة - المادة 540 و 543", "category": "تجاري", "text": "يعاقب بالحبس من سنة إلى 5 سنوات وغرامة مالية كل من أصدر شيكاً بدون رصيد قائم وقابل للتصرف أو منع المسحوب عليه من أدائه."},
 ]
 
 def clean_and_tokenize(text):
     text = re.sub(r'[^\w\s]', '', text.lower())
     return set(text.split())
 
-def tfidf_similarity_search(query, top_k=3):
+def tfidf_similarity_search(query, top_k=4):
     query_tokens = clean_and_tokenize(query)
     if not query_tokens:
         return FULL_LEGAL_CORPUS[:top_k]
@@ -262,7 +260,7 @@ def tfidf_similarity_search(query, top_k=3):
         
         for q_token in query_tokens:
             if q_token in doc["category"]:
-                score += 0.5
+                score += 0.6
         
         scored_docs.append((score, doc))
 
@@ -275,7 +273,7 @@ def tfidf_similarity_search(query, top_k=3):
     return retrieved
 
 # ---------------------------------------------------------
-# 6. دالة إنشاء تقرير Word المتقدم
+# 6. تصدير التقارير بملفات DOCX
 # ---------------------------------------------------------
 def generate_docx(messages):
     doc = docx.Document()
@@ -287,10 +285,10 @@ def generate_docx(messages):
         bidi.set(qn('w:val'), '1')
         p_pr.append(bidi)
 
-    title = doc.add_paragraph("Rapport de Consultation Juridique RAG - Droit Marocain")
+    title = doc.add_paragraph("Rapport de Consultation Juridique RAG - Droit Marocain (SGG)")
     if st.session_state.lang == "ar":
         set_rtl(title)
-        title.runs[0].text = "تقرير استشارة قانونية شاملة - التشريع المغربي (Full RAG)"
+        title.runs[0].text = "تقرير استشارة قانونية شاملة - التشريع المغربي والجريدة الرسمية"
 
     title.runs[0].font.bold = True
     title.runs[0].font.size = docx.shared.Pt(15)
@@ -315,17 +313,17 @@ def generate_docx(messages):
     return buffer.getvalue()
 
 # ---------------------------------------------------------
-# 7. إعداد مفتاح API ومحرك Groq
+# 7. محرك الذكاء الاصطناعي (Groq Client Setup)
 # ---------------------------------------------------------
 api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
 if not api_key:
-    st.error("⚠️ GROQ_API_KEY Missing! Please add it to Streamlit secrets.")
+    st.error("⚠️ GROQ_API_KEY مفقود! يرجى إضافته إلى إعدادات Streamlit Secrets.")
     st.stop()
 
 client = Groq(api_key=api_key)
 
 # ---------------------------------------------------------
-# 8. أدوات التحميل وإعادة الضبط
+# 8. شريط الأدوات والتنزيلات
 # ---------------------------------------------------------
 with st.expander(current_texts["tools"]):
     col_reset, col_txt, col_docx = st.columns(3)
@@ -366,13 +364,13 @@ if len(st.session_state.messages) <= 1:
         st.session_state.messages.append({"role": "user", "content": prompt_to_send})
         st.rerun()
 
-# عرض المحادثة
+# عرض محادثات الجلسة
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
 # ---------------------------------------------------------
-# 10. معالجة الإدخال بنظام RAG الشامل
+# 10. معالجة الإدخال بنظام Enterprise RAG والجريدة الرسمية
 # ---------------------------------------------------------
 user_input = st.chat_input(current_texts["input_placeholder"])
 
@@ -385,8 +383,8 @@ if user_input or (len(st.session_state.messages) > 1 and st.session_state.messag
         with st.chat_message("user"):
             st.markdown(current_prompt)
 
-    # استرجاع النصوص ذات الصلة عبر محرك RAG
-    retrieved_docs = tfidf_similarity_search(current_prompt, top_k=3)
+    # استرجاع النصوص التشريعية
+    retrieved_docs = tfidf_similarity_search(current_prompt, top_k=4)
     
     formatted_context = ""
     sources_ui = []
@@ -395,23 +393,23 @@ if user_input or (len(st.session_state.messages) > 1 and st.session_state.messag
         sources_ui.append(f"• **{doc['law']}**: {doc['text']}")
 
     lang_instruction = {
-        "ar": "أجب باللغة العربية الفصحى بصياغة قانونية رصينة وموضوعية. استشهد بالمواد القانونية المسترجعة أدناه.",
-        "fr": "Répondez en français juridique rigoureux. Citez les articles de loi marocains extraits ci-dessous.",
-        "en": "Answer in precise legal English. Cite the extracted Moroccan statutory articles below."
+        "ar": "أجب باللغة العربية الفصحى بصياغة قانونية أكاديمية ورصينة. أشر إلى المرجع التشريعي الرسمي (الأمانة العامة للحكومة / الجريدة الرسمية).",
+        "fr": "Répondez en français juridique académique en citant le Bulletin Officiel et le SGG.",
+        "en": "Answer in precise legal English citing the Moroccan Official Gazette (SGG)."
     }[st.session_state.lang]
 
     system_prompt = f"""
-    You are an expert Moroccan Senior Legal Counsel with full mastery of Moroccan Laws (Labor Code, Moudawana Family Law, Penal Code, DOC, Civil Procedure).
+    You are a Chief Moroccan Legal Counsel with expertise in all legislation published in the Official Gazette (Bulletin Officiel - SGG), including Public Procurement Laws (Decree 2.22.431), Civil Service Status (Dahir 1.58.008), Labor Code, Family Code, Penal Code, Commercial Code, and DOC.
     
-    Retrieved Statutory Context (RAG):
+    Retrieved Statutory Context (RAG - SGG Gazette):
     {formatted_context}
     
     Language Requirement: {lang_instruction}
     
     Instructions:
-    1. Base your legal reasoning primarily on the retrieved context above and Moroccan jurisprudence.
-    2. Explicitly cite the specific law and article numbers in your explanation.
-    3. Structure your response clearly with headings, bullet points, and an academic legal disclaimer at the end.
+    1. Base your analysis on the provided statutory context and official Moroccan legal frameworks (Official Gazette / SGG).
+    2. Cite relevant Decree, Dahir, or Law Numbers precisely.
+    3. Format using professional headers, bullet points, and conclude with an official academic disclaimer.
     """
 
     messages_payload = [{"role": "system", "content": system_prompt}]
@@ -419,21 +417,20 @@ if user_input or (len(st.session_state.messages) > 1 and st.session_state.messag
         messages_payload.append({"role": m["role"], "content": m["content"]})
 
     with st.chat_message("assistant"):
-        # إظهار المصادر المسترجعة للمستخدم لشفافية كاملة
         with st.expander(current_texts["rag_sources"]):
             for src in sources_ui:
                 st.markdown(src)
 
-        with st.spinner("جاري استرجاع النصوص القانونية ومطابقة القوانين..." if st.session_state.lang == "ar" else "Retrieving Moroccan legal context..."):
+        with st.spinner("جاري استخراج الفصول القانونية المطابقة من الجريدة الرسمية..." if st.session_state.lang == "ar" else "Scanning SGG Legislation..."):
             try:
                 response = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=messages_payload,
-                    temperature=0.2,
+                    temperature=0.15,
                 )
                 bot_reply = response.choices[0].message.content
                 st.markdown(bot_reply)
                 st.session_state.messages.append({"role": "assistant", "content": bot_reply})
                 st.rerun()
             except Exception as e:
-                st.error(f"Error executing RAG completion: {e}")
+                st.error(f"حدث خطأ أثناء معالجة الاستشارة: {e}")
