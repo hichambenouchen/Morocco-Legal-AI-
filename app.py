@@ -20,7 +20,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# 2. تصميم الواجهة ودعم RTL وتكتاكت الرفع المدمج
+# 2. تصميم الواجهة ودعم اتجاه النص (RTL CSS) وتنسيق الإدخال المدمج
 # ---------------------------------------------------------
 st.markdown(
     """
@@ -36,7 +36,7 @@ st.markdown(
     .block-container {
         padding-top: 1rem !important;
         padding-bottom: 7rem !important;
-        max-width: 1200px !important;
+        max-width: 1100px !important;
     }
 
     .stChatMessage, .stChatMessage p, .stMarkdown, .stMarkdown p, .stMarkdown div {
@@ -52,7 +52,7 @@ st.markdown(
     .hero-header {
         background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e40af 100%);
         border-radius: 18px;
-        padding: 28px 32px;
+        padding: 24px 28px;
         color: white;
         margin-bottom: 20px;
         box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
@@ -61,37 +61,31 @@ st.markdown(
     }
     
     .hero-title {
-        font-size: 2.1rem;
+        font-size: 1.8rem;
         font-weight: 900;
         margin: 0;
         color: #ffffff;
     }
 
     .hero-subtitle {
-        font-size: 0.98rem;
+        font-size: 0.95rem;
         color: #cbd5e1;
-        margin-top: 8px;
-        line-height: 1.6;
+        margin-top: 6px;
     }
 
-    /* تنسيق زر الإرفاق ليظهر ملتصقاً بخانة الدردشة في الأسفل */
-    div[data-element-id="stPopover"] {
-        position: fixed;
-        bottom: 25px;
-        right: 18%;
-        z-index: 99999;
-    }
-    
+    /* تحسين زر البوب أوفر ليستقر في ملاصقة خانة الكتابة */
     div[data-element-id="stPopover"] > button {
-        border-radius: 50% !important;
-        width: 45px !important;
-        height: 45px !important;
-        padding: 0 !important;
-        font-size: 22px !important;
-        background-color: #1e3a8a !important;
-        color: white !important;
-        border: none !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
+        border-radius: 12px !important;
+        height: 44px !important;
+        border: 1px solid #cbd5e1 !important;
+        background-color: #f8fafc !important;
+        color: #1e293b !important;
+        font-weight: bold !important;
+    }
+
+    div[data-element-id="stPopover"] > button:hover {
+        background-color: #e2e8f0 !important;
+        border-color: #94a3b8 !important;
     }
     </style>
     """,
@@ -179,7 +173,7 @@ def extract_text_from_file(uploaded_file):
     return clean_arabic_text(text)
 
 # ---------------------------------------------------------
-# 5. الهيدر
+# 5. الهيدر والقائمة الجانبية
 # ---------------------------------------------------------
 st.markdown(
     """
@@ -196,7 +190,7 @@ with st.sidebar:
     if st.button("🗑️ مسح المحادثة وإعادة البداية", use_container_width=True):
         st.session_state.messages = [{
             "role": "assistant",
-            "content": "مرحباً بك! يمكنك طرح أي استفسار قانوني، أو رفع عقد/وثيقة لمطابقتها مع التشريع المغربي."
+            "content": "مرحباً بك! يمكنك طرح أي استفسار قانوني، أو إرفاق عقد/وثيقة من زر (+) بجانب خانة الدردشة لمطابقتها مع التشريع المغربي."
         }]
         st.rerun()
 
@@ -213,7 +207,7 @@ client = Groq(api_key=api_key)
 if "messages" not in st.session_state:
     st.session_state.messages = [{
         "role": "assistant",
-        "content": "مرحباً بك! يمكنك طرح أي استفسار قانوني، أو إرفاق عقد/وثيقة عبر زر (+) الموجود في خانة الإدخال بالأسفل لمطابقتها مع التشريع المغربي والجريدة الرسمية."
+        "content": "مرحباً بك! يمكنك طرح أي استفسار قانوني، أو إرفاق عقد/وثيقة عبر زر (+) الموجود بجانب خانة الإدخال بالأسفل لمطابقتها مع التشريع المغربي والجريدة الرسمية."
     }]
 
 for msg in st.session_state.messages:
@@ -221,25 +215,27 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # ---------------------------------------------------------
-# 7. زر الإرفاق الدائري (+) وخانة السؤال في نفس المكان
+# 7. شريط الإدخال الموحد (زر + وحقل الكتابة في نفس السطر)
 # ---------------------------------------------------------
 uploaded_file = None
 document_context = ""
 
-# النافذة المنبثقة من زر (+) المدمج
-with st.popover("➕"):
-    st.markdown("### 📎 إرفاق عقد أو وثيقة (PDF / Word)")
-    uploaded_file = st.file_uploader("اختر الملف:", type=["pdf", "docx"], key="direct_file_uploader")
-    if uploaded_file is not None:
-        document_context = extract_text_from_file(uploaded_file)
-        if document_context:
-            st.success(f"تمت قراءة الملف بنجاح ({len(document_context)} حرف)")
+col_file, col_input = st.columns([1.5, 8.5], vertical_alignment="bottom")
 
-# خانة الدردشة الرئيسية
-user_input = st.chat_input("اطرح سؤالك القانوني أو اكتب استفسارك حول الملف المرفق...")
+with col_file:
+    with st.popover("➕ إرفاق", use_container_width=True):
+        st.markdown("### 📎 إرفاق عقد أو وثيقة (PDF / Word)")
+        uploaded_file = st.file_uploader("اختر الملف:", type=["pdf", "docx"], key="direct_file_uploader")
+        if uploaded_file is not None:
+            document_context = extract_text_from_file(uploaded_file)
+            if document_context:
+                st.success(f"تمت قراءة الملف بنجاح ({len(document_context)} حرف)")
+
+with col_input:
+    user_input = st.chat_input("اطرح سؤالك القانوني أو اكتب استفسارك حول الملف المرفق...")
 
 # ---------------------------------------------------------
-# 8. المعالجة
+# 8. معالجة الإدخال والتحليل
 # ---------------------------------------------------------
 if user_input:
     st.session_state.messages.append({"role": "user", "content": user_input})
