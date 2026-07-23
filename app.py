@@ -13,7 +13,7 @@ import streamlit as st
 # 1. إعدادات الصفحة والتصميم
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="الموسوعة القانونية المغربية | Legal AI Agent",
+    page_title="الموسوعة القانونية المغربية | Moroccan Legal AI",
     page_icon="⚖️",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -37,12 +37,10 @@ st.markdown(
     }
 
     .stChatMessage, .stChatMessage p, .stMarkdown, .stMarkdown p, .stMarkdown div {
-        direction: rtl !important;
-        text-align: right !important;
+        direction: auto !important;
     }
 
     .stChatMessage {
-        flex-direction: row-reverse !important;
         gap: 12px !important;
     }
 
@@ -53,8 +51,6 @@ st.markdown(
         color: white;
         margin-bottom: 15px;
         box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-        direction: rtl !important;
-        text-align: right !important;
     }
     
     .hero-title {
@@ -100,19 +96,70 @@ if "language" not in st.session_state:
     st.session_state.language = "العربية"
 
 # ---------------------------------------------------------
-# 3. شريط اختيار اللغات العلوي مع الأيقونات 🌐
+# 3. اختيار اللغات والترجمة الديناميكية للواجهة
 # ---------------------------------------------------------
-lang_col1, lang_col2 = st.columns([8, 2])
+UI_TEXTS = {
+    "العربية": {
+        "title": "⚖️ الموسوعة القانونية المغربية الذكية",
+        "subtitle": "مساعد قانوني مغربي معزز بالتحليل الدلالي وقواعد البيانات الرسمية (ChromaDB Vector RAG)",
+        "welcome": "مرحباً بك! أنا مساعدك القانوني المغربي. يمكنك طرح أي سؤال أو رفع عقد/وثيقة لمطابقتها مع التشريع المغربي.",
+        "attach_btn": "➕ إرفاق",
+        "attach_title": "📎 إرفاق عقد أو وثيقة (PDF / Word)",
+        "attach_label": "اختر الملف:",
+        "placeholder": "اطرح سؤالك القانوني هنا...",
+        "file_info": "📄 الملف المرفق المعتمد حالياً:",
+        "reset_btn": "🗑️ إعادة ضبط الجلسة والملفات",
+        "spinner": "جاري فحص المراجع القانونية والتحليل..."
+    },
+    "Français": {
+        "title": "⚖️ Encyclopédie Juridique Marocaine Intelligente",
+        "subtitle": "Assistant juridique marocain optimisé par l'analyse sémantique (ChromaDB Vector RAG)",
+        "welcome": "Bienvenue! Je suis votre assistant juridique marocain. Posez votre question ou téléchargez un document pour analyse.",
+        "attach_btn": "➕ Joindre",
+        "attach_title": "📎 Joindre un contrat ou un document (PDF / Word)",
+        "attach_label": "Choisissez un fichier:",
+        "placeholder": "Posez votre question juridique ici...",
+        "file_info": "📄 Document actuellement chargé:",
+        "reset_btn": "🗑️ Réinitialiser la session et les fichiers",
+        "spinner": "Analyse des références juridiques en cours..."
+    },
+    "English": {
+        "title": "⚖️ Moroccan Smart Legal AI Advisor",
+        "subtitle": "Moroccan Legal Assistant powered by semantic analysis and official databases (ChromaDB Vector RAG)",
+        "welcome": "Welcome! I am your Moroccan legal AI advisor. Feel free to ask any legal question or upload a document for review.",
+        "attach_btn": "➕ Attach",
+        "attach_title": "📎 Attach a Contract or Document (PDF / Word)",
+        "attach_label": "Select file:",
+        "placeholder": "Type your legal question here...",
+        "file_info": "📄 Currently attached document:",
+        "reset_btn": "🗑️ Reset Session & Clear Files",
+        "spinner": "Analyzing legal records and processing..."
+    }
+}
+
+lang_col1, lang_col2 = st.columns([7, 3])
 
 with lang_col2:
     selected_lang = st.selectbox(
-        "🌐 اللغة / Langue",
-        options=["🇲🇦 العربية", "🇫🇷 Français"],
-        index=0 if st.session_state.language == "العربية" else 1,
+        "🌐 Language / اللغة / Langue",
+        options=["🇲🇦 العربية", "🇫🇷 Français", "🇬🇧 English"],
+        index=0 if st.session_state.language == "العربية" else (1 if st.session_state.language == "Français" else 2),
         key="lang_selector"
     )
-    # تحديث متغير اللغة
-    st.session_state.language = "العربية" if "العربية" in selected_lang else "Français"
+    
+    if "العربية" in selected_lang:
+        current_lang = "العربية"
+    elif "Français" in selected_lang:
+        current_lang = "Français"
+    else:
+        current_lang = "English"
+
+    if st.session_state.language != current_lang:
+        st.session_state.language = current_lang
+        st.session_state.messages = []  # إعادة تعيين الترحيب عند تغيير اللغة
+        st.rerun()
+
+texts = UI_TEXTS[st.session_state.language]
 
 # ---------------------------------------------------------
 # 4. بناء قاعدة البيانات المتجهة (ChromaDB)
@@ -178,7 +225,7 @@ def extract_text_from_file(uploaded_file):
                 if p.text:
                     text += p.text + "\n"
     except Exception as e:
-        st.error(f"خطأ في قراءة الملف: {e}")
+        st.error(f"Error reading file: {e}")
     return clean_text(text)
 
 def extract_relevant_snippets(query, full_text, top_n=3, chunk_size=1200):
@@ -200,7 +247,7 @@ def extract_relevant_snippets(query, full_text, top_n=3, chunk_size=1200):
     
     if scored_chunks:
         selected = [item[1] for item in scored_chunks[:top_n]]
-        return "\n--- فقرة مطابقة ---\n".join(selected)
+        return "\n--- EXTRACTED SNIPPET ---\n".join(selected)
     else:
         return "NO_DIRECT_MATCH"
 
@@ -208,29 +255,30 @@ def extract_relevant_snippets(query, full_text, top_n=3, chunk_size=1200):
 # 6. القائمة الجانبية (Sidebar)
 # ---------------------------------------------------------
 with st.sidebar:
-    st.header("⚙️ خيارات الجلسة")
-    if st.button("🗑️ إعادة ضبط الجلسة والملفات", use_container_width=True):
+    st.header("⚙️ Options")
+    if st.button(texts["reset_btn"], use_container_width=True):
         st.session_state.messages = []
         st.session_state.uploaded_doc_text = ""
         st.session_state.uploaded_doc_name = ""
         st.rerun()
 
 # ---------------------------------------------------------
-# 7. الهيدر والترحيب
+# 7. الهيدر والترحيب باللغة المختارة
 # ---------------------------------------------------------
+text_align_style = "rtl" if st.session_state.language == "العربية" else "ltr"
+
 st.markdown(
-    """
-    <div class="hero-header">
-        <div class="hero-title">⚖️ الموسوعة القانونية المغربية الذكية</div>
-        <div class="hero-subtitle">Assistant Juridique Marocain المعزز بالجريدة الرسمية والتحليل الدلالي (ChromaDB Vector RAG)</div>
+    f"""
+    <div class="hero-header" style="text-align: {text_align_style}; direction: {text_align_style};">
+        <div class="hero-title">{texts['title']}</div>
+        <div class="hero-subtitle">{texts['subtitle']}</div>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
 if not st.session_state.messages:
-    welcome_msg = "مرحباً بك! أنا مساعدك القانوني المغربي. يمكنك طرح أي سؤال أو رفع عقد/وثيقة لمطابقتها مع التشريع المغربي." if st.session_state.language == "العربية" else "Bienvenue! Je suis votre assistant juridique marocain. Posez votre question ou téléchargez un document."
-    st.session_state.messages.append({"role": "assistant", "content": welcome_msg})
+    st.session_state.messages.append({"role": "assistant", "content": texts["welcome"]})
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
@@ -242,29 +290,28 @@ for msg in st.session_state.messages:
 col_file, col_input = st.columns([1.5, 8.5], vertical_alignment="bottom")
 
 with col_file:
-    with st.popover("➕ إرفاق", use_container_width=True):
-        st.markdown("### 📎 إرفاق عقد أو وثيقة (PDF / Word)")
-        file_obj = st.file_uploader("اختر الملف:", type=["pdf", "docx"], key="doc_uploader")
+    with st.popover(texts["attach_btn"], use_container_width=True):
+        st.markdown(f"### {texts['attach_title']}")
+        file_obj = st.file_uploader(texts["attach_label"], type=["pdf", "docx"], key="doc_uploader")
         if file_obj is not None:
             if st.session_state.uploaded_doc_name != file_obj.name:
                 extracted = extract_text_from_file(file_obj)
                 st.session_state.uploaded_doc_text = extracted
                 st.session_state.uploaded_doc_name = file_obj.name
-                st.success(f"تم تحميل وقراءة: {file_obj.name}")
+                st.success(f"Loaded: {file_obj.name}")
 
 if st.session_state.uploaded_doc_name:
-    st.info(f"📄 الملف المرفق المعتمد حالياً: **{st.session_state.uploaded_doc_name}** ({len(st.session_state.uploaded_doc_text)} حرف)")
+    st.info(f"{texts['file_info']} **{st.session_state.uploaded_doc_name}** ({len(st.session_state.uploaded_doc_text)} chars)")
 
 with col_input:
-    placeholder_text = "اطرح سؤالك القانوني هنا..." if st.session_state.language == "العربية" else "Posez votre question juridique ici..."
-    user_input = st.chat_input(placeholder_text)
+    user_input = st.chat_input(texts["placeholder"])
 
 # ---------------------------------------------------------
 # 9. معالجة السؤال والتحليل الذكي
 # ---------------------------------------------------------
 api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
 if not api_key:
-    st.error("⚠️ GROQ_API_KEY مفقود في Secrets!")
+    st.error("⚠️ GROQ_API_KEY missing in Secrets!")
     st.stop()
 
 client = Groq(api_key=api_key)
@@ -304,7 +351,7 @@ if user_input:
 
     system_prompt = f"""
     You are an expert Moroccan Legal AI Advisor.
-    Language: {st.session_state.language}
+    Target Language for Output: {st.session_state.language}
     
     {doc_instruction}
 
@@ -312,9 +359,10 @@ if user_input:
     {formatted_context}
 
     CRITICAL RULES:
-    1. NEVER repeat paragraphs or sentences. Present a clean, well-structured response.
-    2. Do NOT invent concepts (e.g., do NOT attribute Public Sector terms like "اللجان المتساوية الأعضاء" to the Private Sector Code "modouana" unless making a legal distinction).
-    3. Respond directly, accurately, and professionally in {st.session_state.language}.
+    1. Reply fully in the target language: {st.session_state.language}.
+    2. NEVER repeat paragraphs or sentences. Present a clean, well-structured response.
+    3. Do NOT invent concepts (e.g., do NOT attribute Public Sector terms like "اللجان المتساوية الأعضاء" to Private Sector Code unless making a clear legal distinction).
+    4. Respond directly, accurately, and professionally.
     """
 
     messages_payload = [{"role": "system", "content": system_prompt}]
@@ -322,7 +370,7 @@ if user_input:
         messages_payload.append({"role": m["role"], "content": m["content"]})
 
     with st.chat_message("assistant"):
-        with st.spinner("جاري فحص المراجع القانونية والتحليل..."):
+        with st.spinner(texts["spinner"]):
             try:
                 response = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
@@ -334,4 +382,4 @@ if user_input:
                 st.session_state.messages.append({"role": "assistant", "content": bot_reply})
                 st.rerun()
             except Exception as e:
-                st.error(f"حدث خطأ: {e}")
+                st.error(f"Error: {e}")
