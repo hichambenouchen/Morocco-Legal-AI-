@@ -57,11 +57,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# سحب المفتاح بأمان تام من الخزينة السحابية لـ Streamlit
+# جلب المفتاح بأمان من خزينة Streamlit السحابية
 try:
     GROQ_KEY = st.secrets["GROQ_API_KEY"]
 except Exception:
-    # قيمة افتراضية في حال التشغيل المحلي للتجربة (اختياري)
     GROQ_KEY = ""
 
 os.environ["GROQ_API_KEY"] = GROQ_KEY
@@ -137,4 +136,20 @@ if generate_btn:
                 source_name = doc.metadata.get('source', 'مصدر رقمي')
                 context_texts.append(f"- النص {idx+1}: {doc.page_content} (المصدر: {source_name})")
             
-            context_combined = "\n".join(context_texts
+            context_combined = "\n".join(context_texts)
+            
+            response = legal_chain.invoke({"context": context_combined, "question": user_scenario})
+            
+            st.success("✅ تمت صياغة الاستشارة القانونية بنجاح!")
+            
+            tab1, tab2 = st.tabs(["📋 وثيقة الاستشارة القانونية", "📚 النصوص والمراجع المستند إليها"])
+            
+            with tab1:
+                st.markdown("### الاستشارة الرسمية")
+                st.markdown("---")
+                st.markdown(response.content)
+                
+            with tab2:
+                st.markdown("### السندات المستخرجة من قاعدة البيانات")
+                st.markdown("---")
+                st.text(context_combined)
