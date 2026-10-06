@@ -71,7 +71,8 @@ def load_ai_system():
     embeddings = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-base")
     vector_db = Chroma(persist_directory="./moroccan_law_db", embedding_function=embeddings)
     
-    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.1, google_api_key=GEMINI_KEY)
+    # استخدام اسم نموذج متوافق ومستقر تماماً
+    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash-latest", temperature=0.1, google_api_key=GEMINI_KEY)
     
     template = """
     أنت مستشار قانوني مغربي خبير في القانون العام والمنازعات الإدارية والصفقات العمومية.
