@@ -1,305 +1,140 @@
-import io
 import os
-import re
-import json
-import urllib.parse
-import urllib.request
-import docx
-import pypdf
-import pdfplumber
-import chromadb
-from chromadb.utils import embedding_functions
-from groq import Groq
 import streamlit as st
+from langchain_chroma import Chroma
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_groq import ChatGroq
+from langchain_core.prompts import PromptTemplate
 
-# ---------------------------------------------------------
-# 1. إعدادات الصفحة الأساسية
-# ---------------------------------------------------------
+# إعداد الصفحة وتصميم الهوية البصرية
 st.set_page_config(
-    page_title="الموسوعة القانونية المغربية | Moroccan Legal AI",
-    page_icon="⚖️",
+    page_title="المساعد القانوني المغربي الذكي",
+    page_icon="⚖",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded"
 )
 
-# ---------------------------------------------------------
-# 2. إدارة حالة الجلسة (Session State)
-# ---------------------------------------------------------
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-if "uploaded_doc_text" not in st.session_state:
-    st.session_state.uploaded_doc_text = ""
-
-if "uploaded_doc_name" not in st.session_state:
-    st.session_state.uploaded_doc_name = ""
-
-if "language" not in st.session_state:
-    st.session_state.language = "العربية"
-
-# ---------------------------------------------------------
-# 3. النصوص المترجمة للواجهة
-# ---------------------------------------------------------
-UI_TEXTS = {
-    "العربية": {
-        "title": "⚖️ الموسوعة القانونية المغربية الذكية",
-        "subtitle": "ربط مباشر بالجريدة الرسمية وبوابة الأمانة العامة للحكومة (SGG Direct RAG)",
-        "welcome": "مرحباً بك! أنا مساعدك القانوني المغربي المباشر. يمكنك طرح أي سؤال قانوني وسأقوم بالبحث الفوري في مصادر الجريدة الرسمية والأمانة العامة للحكومة.",
-        "attach_btn": "➕ إرفاق",
-        "attach_title": "📎 إرفاق عقد أو وثيقة (PDF / Word)",
-        "attach_label": "اختر الملف:",
-        "placeholder": "اطرح سؤالك القانوني هنا...",
-        "file_info": "📄 الملف المرفق المعتمد حالياً:",
-        "reset_btn": "🗑️ إعادة ضبط الجلسة والملفات",
-        "spinner": "جاري البحث الفوري في بوابة الأمانة العامة للحكومة والجريدة الرسمية..."
-    },
-    "Français": {
-        "title": "⚖️ Encyclopédie Juridique Marocaine Intelligente",
-        "subtitle": "Accès direct au Bulletin Officiel et au Secrétariat Général du Gouvernement (SGG Direct RAG)",
-        "welcome": "Bienvenue! Je suis votre assistant juridique. Posez votre question et je chercherai directement dans le Bulletin Officiel marocain.",
-        "attach_btn": "➕ Joindre",
-        "attach_title": "📎 Joindre un contrat ou un document (PDF / Word)",
-        "attach_label": "Choisissez un fichier:",
-        "placeholder": "Posez votre question juridique ici...",
-        "file_info": "📄 Document actuellement chargé:",
-        "reset_btn": "🗑️ Réinitialiser la session",
-        "spinner": "Recherche en direct dans le Bulletin Officiel (SGG)..."
-    },
-    "English": {
-        "title": "⚖️ Moroccan Smart Legal AI Advisor",
-        "subtitle": "Direct integration with Moroccan Official Gazette & SGG Portal",
-        "welcome": "Welcome! I am your Moroccan legal AI advisor. Ask any question to retrieve immediate live answers from the Official Gazette.",
-        "attach_btn": "➕ Attach",
-        "attach_title": "📎 Attach Document (PDF / Word)",
-        "attach_label": "Select file:",
-        "placeholder": "Type your legal question here...",
-        "file_info": "📄 Currently attached document:",
-        "reset_btn": "🗑️ Reset Session",
-        "spinner": "Searching live Moroccan Official Gazette records..."
-    }
-}
-
-# ---------------------------------------------------------
-# 4. القائمة الجانبية (Sidebar)
-# ---------------------------------------------------------
-with st.sidebar:
-    st.header("🌐 Language / اللغة")
-    selected_lang = st.selectbox(
-        "اختر لغة الواجهة:",
-        options=["🇲🇦 العربية", "🇫🇷 Français", "🇬🇧 English"],
-        index=0 if st.session_state.language == "العربية" else (1 if st.session_state.language == "Français" else 2),
-    )
-    
-    if "العربية" in selected_lang:
-        current_lang = "العربية"
-    elif "Français" in selected_lang:
-        current_lang = "Français"
-    else:
-        current_lang = "English"
-
-    if st.session_state.language != current_lang:
-        st.session_state.language = current_lang
-        st.session_state.messages = []
-        st.rerun()
-
-    st.divider()
-    texts = UI_TEXTS[st.session_state.language]
-    if st.button(texts["reset_btn"], use_container_width=True):
-        st.session_state.messages = []
-        st.session_state.uploaded_doc_text = ""
-        st.session_state.uploaded_doc_name = ""
-        st.rerun()
-
-# ---------------------------------------------------------
-# 5. CSS آمن ومستقر
-# ---------------------------------------------------------
-is_rtl = st.session_state.language == "العربية"
-direction = "rtl" if is_rtl else "ltr"
-text_align = "right" if is_rtl else "left"
-
-st.markdown(
-    f"""
+# تخصيص التصميم عبر CSS
+st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
-
-    p, h1, h2, h3, div {{
-        font-family: 'Cairo', sans-serif;
-    }}
-
-    .hero-header {{
-        background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e40af 100%);
-        border-radius: 16px;
-        padding: 24px;
-        color: white;
-        margin-bottom: 20px;
-        direction: {direction};
-        text-align: {text_align};
-    }}
-    
-    .hero-title {{
-        font-size: 1.8rem;
-        font-weight: 800;
-        margin: 0;
-    }}
-
-    .hero-subtitle {{
-        font-size: 0.95rem;
-        color: #cbd5e1;
-        margin-top: 8px;
-    }}
-
-    .stChatMessage {{
-        direction: {direction} !important;
-        text-align: {text_align} !important;
-    }}
+        .main {
+            background-color: #F8F9FA;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        [data-testid="stSidebar"] {
+            background-color: #1A2B4C;
+            color: #ffffff;
+        }
+        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, [data-testid="stSidebar"] p, [data-testid="stSidebar"] label {
+            color: #FFFFFF !important;
+        }
+        .main-title {
+            color: #1A2B4C;
+            font-weight: 800;
+            border-bottom: 3px solid #D4AF37;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .stButton>button {
+            background-color: #1A2B4C;
+            color: white;
+            border: 2px solid #D4AF37;
+            border-radius: 6px;
+            font-weight: bold;
+            padding: 0.5rem 1rem;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+        .stButton>button:hover {
+            background-color: #D4AF37;
+            color: #1A2B4C;
+            border-color: #1A2B4C;
+        }
+        .stTextArea textarea {
+            border: 2px solid #1A2B4C;
+            border-radius: 8px;
+            background-color: #FFFFFF;
+        }
     </style>
-    """,
-    unsafe_allow_html=True,
+""", unsafe_allow_html=True)
+
+# سحب المفتاح بأمان تام من الخزينة السحابية لـ Streamlit
+try:
+    GROQ_KEY = st.secrets["GROQ_API_KEY"]
+except Exception:
+    # قيمة افتراضية في حال التشغيل المحلي للتجربة (اختياري)
+    GROQ_KEY = ""
+
+os.environ["GROQ_API_KEY"] = GROQ_KEY
+
+# تحميل النماذج وقاعدة البيانات مع التخزين المؤقت
+@st.cache_resource
+def load_ai_system():
+    embeddings = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-base")
+    vector_db = Chroma(persist_directory="./moroccan_law_db", embedding_function=embeddings)
+    
+    llm = ChatGroq(model_name="llama-3.1-8b-instant", temperature=0.1, groq_api_key=GROQ_KEY)
+    
+    template = """
+    أنت مستشار قانوني مغربي خبير في القانون العام والمنازعات الإدارية والصفقات العمومية.
+    قم بتحليل وقائع المستخدم بالاستناد حصراً على النصوص والمعطيات القانونية المستبردة في السياق أدناه.
+    إذا كانت المعطيات لا تحتوي على الإجابة الدقيقة، اعتذر بلطف.
+
+    السياق القانوني المسترد:
+    {context}
+
+    وقائع المستخدم:
+    {question}
+
+    قم بصياغة استشارة قانونية دقيقة ومنهجية مع تحديد السند أو المرجع إن وجد في السياق.
+    الاستشارة:
+    """
+    prompt = PromptTemplate(template=template, input_variables=["context", "question"])
+    chain = prompt | llm
+    return vector_db, chain
+
+with st.spinner("⚖️ جاري تهيئة المنظومة القانونية واستدعاء القواعد..."):
+    vector_db, legal_chain = load_ai_system()
+
+# --- الشريط الجانبي (Sidebar) ---
+with st.sidebar:
+    st.image("https://img.icons8.com/color/96/scales.png", width=70)
+    st.markdown("## إطارات العمل القضائي")
+    st.markdown("---")
+    st.markdown("""
+    **المجالات المغطاة:**
+    * القانون العام والمنازعات الإدارية
+    * مرسوم الصفقات العمومية 2023
+    * التنظيم القضائي والمحاكم الإدارية
+    * الدستور والحريات العامة
+    """)
+    st.markdown("---")
+    st.markdown("<p style='text-align: center; font-size: 12px; color: #D4AF37;'>منصة بحث واستشارات قانونية ذكية &copy; 2026</p>", unsafe_allow_html=True)
+
+# --- الواجهة الرئيسية ---
+st.markdown("<h1 class='main-title'>⚖️ منصة الاستشارات والتحليل القانوني المغربي</h1>", unsafe_allow_html=True)
+st.markdown("منصة ذكية موجهة للباحثين والممارسين لتحليل النوازل القانونية، استناداً إلى قاعدة بيانات محينة تحاكي اجتهادات ونصوص القانون الإداري والمالي بالمملكة.")
+
+# نموذج إدخال الوقائع
+user_scenario = st.text_area(
+    "📋 **أدخل وقائع النازلة أو السؤال القانوني المراد تحليله:**",
+    placeholder="اطرح سؤالك القانوني هنا...",
+    height=140
 )
 
-# ---------------------------------------------------------
-# 6. أداة البحث المباشر المستقرة (بدون مكتبات خارجية)
-# ---------------------------------------------------------
-def search_sgg_live(query):
-    try:
-        encoded_query = urllib.parse.quote(f"التشريع المغربي الأمانة العامة للحكومة {query}")
-        url = f"https://api.duckduckgo.com/?q={encoded_query}&format=json&no_html=1"
-        
-        req = urllib.request.Request(
-            url, 
-            headers={'User-Agent': 'Mozilla/5.0'}
-        )
-        
-        with urllib.request.urlopen(req, timeout=8) as response:
-            data = json.loads(response.read().decode())
-            abstract = data.get("AbstractText", "")
-            related = [topic.get("Text", "") for topic in data.get("RelatedTopics", []) if "Text" in topic]
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    generate_btn = st.button("🔍 إصدار الاستشارة القانونية", type="primary")
+
+if generate_btn:
+    if not user_scenario.strip():
+        st.warning("⚠️ يرجى كتابة وقائع النازلة أو الاستشارة أولاً قبل الضغط على الزر.")
+    else:
+        with st.spinner("🔄 جاري البحث الدلالي في النصوص وتحليل النوازل القانونية..."):
+            results = vector_db.similarity_search(user_scenario, k=3)
             
-            combined = abstract + "\n" + "\n".join(related[:3])
-            return combined.strip() if combined.strip() else "تم استخدام التشريع والقوانين المغربية الرسمية."
-    except Exception:
-        return "تطبيق المراجع القانونية المغربية الرسمية المعتمدة."
-
-# ---------------------------------------------------------
-# 7. استخراج النصوص من الملفات
-# ---------------------------------------------------------
-def clean_text(text):
-    if not text:
-        return ""
-    return re.sub(r'\s+', ' ', text).strip()
-
-def extract_text_from_file(uploaded_file):
-    text = ""
-    try:
-        if uploaded_file.name.endswith(".pdf"):
-            with pdfplumber.open(uploaded_file) as pdf:
-                for page in pdf.pages:
-                    extracted = page.extract_text()
-                    if extracted:
-                        text += extracted + "\n"
-        elif uploaded_file.name.endswith(".docx"):
-            doc = docx.Document(uploaded_file)
-            for p in doc.paragraphs:
-                if p.text:
-                    text += p.text + "\n"
-    except Exception as e:
-        st.error(f"Error reading file: {e}")
-    return clean_text(text)
-
-# ---------------------------------------------------------
-# 8. عرض الواجهة
-# ---------------------------------------------------------
-st.markdown(
-    f"""
-    <div class="hero-header">
-        <div class="hero-title">{texts['title']}</div>
-        <div class="hero-subtitle">{texts['subtitle']}</div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-if not st.session_state.messages:
-    st.session_state.messages.append({"role": "assistant", "content": texts["welcome"]})
-
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-
-# ---------------------------------------------------------
-# 9. شريط الإدخال
-# ---------------------------------------------------------
-col_file, col_input = st.columns([2, 8], vertical_alignment="bottom")
-
-with col_file:
-    with st.popover(texts["attach_btn"], use_container_width=True):
-        st.markdown(f"### {texts['attach_title']}")
-        file_obj = st.file_uploader(texts["attach_label"], type=["pdf", "docx"], key="doc_uploader")
-        if file_obj is not None:
-            if st.session_state.uploaded_doc_name != file_obj.name:
-                extracted = extract_text_from_file(file_obj)
-                st.session_state.uploaded_doc_text = extracted
-                st.session_state.uploaded_doc_name = file_obj.name
-                st.success(f"Loaded: {file_obj.name}")
-
-if st.session_state.uploaded_doc_name:
-    st.info(f"{texts['file_info']} **{st.session_state.uploaded_doc_name}**")
-
-with col_input:
-    user_input = st.chat_input(texts["placeholder"])
-
-# ---------------------------------------------------------
-# 10. المعالجة الذكية للإجابة
-# ---------------------------------------------------------
-api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
-if not api_key:
-    st.error("⚠️ GROQ_API_KEY missing in Secrets!")
-    st.stop()
-
-client = Groq(api_key=api_key)
-
-if user_input:
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    with st.chat_message("user"):
-        st.markdown(user_input)
-
-    with st.chat_message("assistant"):
-        with st.spinner(texts["spinner"]):
-            live_legal_data = search_sgg_live(user_input)
-
-            system_prompt = f"""
-            أنت مستشار قانوني مغربي خبير معتمد.
-            لغة الإجابة المطلوبة: {st.session_state.language}
-
-            المعطيات المباشرة من الأمانة العامة للحكومة والجريدة الرسمية:
-            \"\"\"
-            {live_legal_data}
-            \"\"\"
-
-            الملف المرفق من المستخدم:
-            \"\"\"
-            {st.session_state.uploaded_doc_text[:2000]}
-            \"\"\"
-
-            القواعد:
-            1. أجب بدقة واستناداً إلى التشريع القانوني المغربي الرسمي.
-            2. صغ إجابة مباشرة بأسلوب قانوني رصين بنفس اللغة المطلوبة ({st.session_state.language}).
-            3. اذكر اسم المادة أو القانون المغربي بدقة عند توفره.
-            """
-
-            messages_payload = [{"role": "system", "content": system_prompt}]
-            for m in st.session_state.messages:
-                messages_payload.append({"role": m["role"], "content": m["content"]})
-
-            try:
-                response = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=messages_payload,
-                    temperature=0.0,
-                )
-                bot_reply = response.choices[0].message.content
-                st.markdown(bot_reply)
-                st.session_state.messages.append({"role": "assistant", "content": bot_reply})
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error: {e}")
+            context_texts = []
+            for idx, doc in enumerate(results):
+                source_name = doc.metadata.get('source', 'مصدر رقمي')
+                context_texts.append(f"- النص {idx+1}: {doc.page_content} (المصدر: {source_name})")
+            
+            context_combined = "\n".join(context_texts
