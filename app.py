@@ -2,7 +2,7 @@ import os
 import streamlit as st
 from langchain_chroma import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 
 # إعداد الصفحة وتصميم الهوية البصرية
@@ -57,13 +57,13 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# جلب المفتاح بأمان من خزينة Streamlit السحابية
+# سحب مفتاح Gemini بأمان من خزينة Streamlit السحابية
 try:
-    GROQ_KEY = st.secrets["GROQ_API_KEY"]
+    GEMINI_KEY = st.secrets["GOOGLE_API_KEY"]
 except Exception:
-    GROQ_KEY = ""
+    GEMINI_KEY = ""
 
-os.environ["GROQ_API_KEY"] = GROQ_KEY
+os.environ["GOOGLE_API_KEY"] = GEMINI_KEY
 
 # تحميل النماذج وقاعدة البيانات مع التخزين المؤقت
 @st.cache_resource
@@ -71,7 +71,7 @@ def load_ai_system():
     embeddings = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-base")
     vector_db = Chroma(persist_directory="./moroccan_law_db", embedding_function=embeddings)
     
-    llm = ChatGroq(model_name="llama-3.1-8b-instant", temperature=0.1, groq_api_key=GROQ_KEY)
+    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.1, google_api_key=GEMINI_KEY)
     
     template = """
     أنت مستشار قانوني مغربي خبير في القانون العام والمنازعات الإدارية والصفقات العمومية.
@@ -91,7 +91,7 @@ def load_ai_system():
     chain = prompt | llm
     return vector_db, chain
 
-with st.spinner("⚖️ جاري تهيئة المنظومة القانونية واستدعاء القواعد..."):
+with st.spinner("⚖️ جاري تهيئة المنظومة القانونية واستدعاء القواعد عبر Gemini..."):
     vector_db, legal_chain = load_ai_system()
 
 # --- الشريط الجانبي (Sidebar) ---
@@ -128,7 +128,7 @@ if generate_btn:
     if not user_scenario.strip():
         st.warning("⚠️ يرجى كتابة وقائع النازلة أو الاستشارة أولاً قبل الضغط على الزر.")
     else:
-        with st.spinner("🔄 جاري البحث الدلالي في النصوص وتحليل النوازل القانونية..."):
+        with st.spinner("🔄 جاري البحث الدلالي وتحليل النازلة عبر Gemini..."):
             results = vector_db.similarity_search(user_scenario, k=3)
             
             context_texts = []
