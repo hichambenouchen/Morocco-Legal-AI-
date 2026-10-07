@@ -71,8 +71,8 @@ def load_ai_system():
     embeddings = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-base")
     vector_db = Chroma(persist_directory="./moroccan_law_db", embedding_function=embeddings)
     
-    # استخدام نموذج Gemini 1.5 Flash المباشر والسريع
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # استخدام التسمية القياسية المعتمدة للموديل
+    model = genai.GenerativeModel('models/gemini-1.5-flash')
     return vector_db, model
 
 with st.spinner("⚖️ جاري تهيئة المنظومة القانونية واستدعاء القاعدة المعرفية..."):
@@ -113,7 +113,6 @@ if generate_btn:
         st.warning("⚠️ يرجى كتابة وقائع النازلة أو الاستشارة أولاً قبل الضغط على الزر.")
     else:
         with st.spinner("🔄 جاري البحث الدلالي وتحليل النازلة عبر النماذج الذكية..."):
-            # البحث الدلالي في قاعدة البيانات المحلية
             results = vector_db.similarity_search(user_scenario, k=3)
             
             context_texts = []
@@ -123,7 +122,6 @@ if generate_btn:
             
             context_combined = "\n".join(context_texts)
             
-            # صياغة الموجه القانوني المخصص
             prompt_full = f"""
             أنت مستشار قانوني مغربي خبير في القانون العام والمنازعات الإدارية والصفقات العمومية.
             قم بتحليل وقائع المستخدم بالاستناد حصراً على النصوص والمعطيات القانونية المستبردة في السياق أدناه.
@@ -139,7 +137,6 @@ if generate_btn:
             الاستشارة:
             """
             
-            # توليد الإجابة عبر نموذج Gemini المباشر
             response = gemini_model.generate_content(prompt_full)
             
             st.success("✅ تمت صياغة الاستشارة القانونية بنجاح!")
