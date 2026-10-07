@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import urllib.request
 import urllib.error
 import streamlit as st
@@ -64,10 +65,9 @@ try:
 except Exception:
     gemini_key_val = ""
 
-# دالة الاتصال المباشر مع التحديث إلى النموذج الجديد المطلوب رسمياً
-def call_gemini_api(prompt_text, api_key):
-    # استخدام gemini-3.8-flash بناءً على توجيه رسالة الخطأ الخوادم
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={api_key}"
+# دالة الاتصال مع ميزة إعادة المحاولة التلقائية عند الضغط المؤقت (503)
+def call_gemini_api_with_retry(prompt_text, api_key, retries=3, delay=2):
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
     
     payload = {
         "contents": [{
@@ -78,15 +78,24 @@ def call_gemini_api(prompt_text, api_key):
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
     
-    try:
-        with urllib.request.urlopen(req) as response:
-            res_data = json.loads(response.read().decode("utf-8"))
-            return res_data["candidates"][0]["content"]["parts"][0]["text"]
-    except urllib.error.HTTPError as e:
-        error_message = e.read().decode("utf-8")
-        return f"خطأ في الاتصال بالمنصة السحابية: {e.code} - {error_message}"
-    except Exception as ex:
-        return f"حدث خطأ غير متوقع: {str(ex)}"
+    for attempt in range(retries):
+        try:
+            with urllib.request.urlopen(req) as response:
+                res_data = json.loads(response.read().decode("utf-8"))
+                return res_data["candidates"][0]["content"]["parts"][0]["text"]
+        except urllib.error.HTTPError as e:
+            error_message = e.read().decode("utf-8")
+            # إذا كان الخطأ بسبب الضغط (503)، ننتظر ونععيد المحاولة
+            if e.code == 503 and attempt < retries - 1:
+                time.sleep(delay)
+                continue
+            return f"خطأ في الاتصال بالمنصة السحابية: {e.code} - {error_message}"
+        except Exception as ex:
+            if attempt < retries - 1:
+                time.sleep(delay)
+                continue
+            return f"حدث خطأ غير متوقع: {str(ex)}"
+    return "فشلت المحاولات بسبب الضغط المستمر على الخادم، يرجى المحاولة بعد قليل."
 
 # تحميل النماذج وقاعدة البيانات مع التخزين المؤقت
 @st.cache_resource
@@ -159,7 +168,8 @@ if generate_btn:
             الاستشارة:
             """
             
-            response_text = call_gemini_api(prompt_full, gemini_key_val)
+            # استدعاء دالة الاتصال المحمية بآلية إعادة المحاولة
+            response_text = call_gemini_api_with_retry(prompt_full, gemini_key_val)
             
             st.success("✅ تمت صياغة الاستشارة القانونية بنجاح!")
             
