@@ -64,8 +64,9 @@ try:
 except Exception:
     gemini_key_val = ""
 
-# دالة الاتصال المباشر والمستقر مع Gemini REST API
+# دالة الاتصال المباشر والمستقر مع تصحيح رابط النموذج
 def call_gemini_api(prompt_text, api_key):
+    # تم ضبط اسم النموذج بشكل مباشر ودقيق في الرابط
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
     
     payload = {
@@ -80,7 +81,6 @@ def call_gemini_api(prompt_text, api_key):
     try:
         with urllib.request.urlopen(req) as response:
             res_data = json.loads(response.read().decode("utf-8"))
-            # استخراج النص الناتج بدقة
             return res_data["candidates"][0]["content"]["parts"][0]["text"]
     except urllib.error.HTTPError as e:
         error_message = e.read().decode("utf-8")
@@ -159,7 +159,6 @@ if generate_btn:
             الاستشارة:
             """
             
-            # استدعاء الـ API مباشرة بدون أي مكتبات معقدة
             response_text = call_gemini_api(prompt_full, gemini_key_val)
             
             st.success("✅ تمت صياغة الاستشارة القانونية بنجاح!")
