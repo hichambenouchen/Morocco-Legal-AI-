@@ -2,7 +2,7 @@ import os
 import streamlit as st
 from langchain_chroma import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
-import google.generativeai as genai
+from google import genai
 
 # إعداد الصفحة وتصميم الهوية البصرية
 st.set_page_config(
@@ -56,27 +56,24 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# جلب المفتاح بأمان من خزينة Streamlit السحابية
+# جلب المفتاح بأمان من خزينة Streamlit
 try:
-    GEMINI_KEY = st.secrets["GOOGLE_API_KEY"]
+    gemini_key_val = st.secrets["GOOGLE_API_KEY"]
 except Exception:
-    GEMINI_KEY = ""
+    gemini_key_val = ""
 
-# تهيئة مكتبة جوجل جنرال مباشرة
-genai.configure(api_key=GEMINI_KEY)
+# تهيئة العميل الجديد المعتمد من جوجل
+client = genai.Client(api_key=gemini_key_val)
 
 # تحميل النماذج وقاعدة البيانات مع التخزين المؤقت
 @st.cache_resource
 def load_ai_system():
     embeddings = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-base")
     vector_db = Chroma(persist_directory="./moroccan_law_db", embedding_function=embeddings)
-    
-    # استخدام التسمية القياسية المعتمدة للموديل
-    model = genai.GenerativeModel('models/gemini-1.5-flash')
-    return vector_db, model
+    return vector_db
 
 with st.spinner("⚖️ جاري تهيئة المنظومة القانونية واستدعاء القاعدة المعرفية..."):
-    vector_db, gemini_model = load_ai_system()
+    vector_db = load_ai_system()
 
 # --- الشريط الجانبي (Sidebar) ---
 with st.sidebar:
@@ -137,7 +134,11 @@ if generate_btn:
             الاستشارة:
             """
             
-            response = gemini_model.generate_content(prompt_full)
+            # الاستدعاء بالطريقة الحديثة والمستقرة للعميل
+            response = client.models.generate_content(
+                model='gemini-1.5-flash',
+                contents=prompt_full,
+            )
             
             st.success("✅ تمت صياغة الاستشارة القانونية بنجاح!")
             
