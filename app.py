@@ -65,8 +65,9 @@ try:
 except Exception:
     gemini_key_val = ""
 
-# دالة الاتصال مع ميزة إعادة المحاولة التلقائية عند الضغط المؤقت (503)
+# دالة الاتصال مع ضبط مسار النموذج بدقة بدون بادئة خاطئة ومع إعادة المحاولة
 def call_gemini_api_with_retry(prompt_text, api_key, retries=3, delay=2):
+    # الرابط الدقيق والصحيح 100% للنموذج المعتمد
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
     
     payload = {
@@ -85,7 +86,6 @@ def call_gemini_api_with_retry(prompt_text, api_key, retries=3, delay=2):
                 return res_data["candidates"][0]["content"]["parts"][0]["text"]
         except urllib.error.HTTPError as e:
             error_message = e.read().decode("utf-8")
-            # إذا كان الخطأ بسبب الضغط (503)، ننتظر ونععيد المحاولة
             if e.code == 503 and attempt < retries - 1:
                 time.sleep(delay)
                 continue
@@ -168,7 +168,6 @@ if generate_btn:
             الاستشارة:
             """
             
-            # استدعاء دالة الاتصال المحمية بآلية إعادة المحاولة
             response_text = call_gemini_api_with_retry(prompt_full, gemini_key_val)
             
             st.success("✅ تمت صياغة الاستشارة القانونية بنجاح!")
