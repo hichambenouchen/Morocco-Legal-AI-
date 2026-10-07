@@ -64,10 +64,10 @@ try:
 except Exception:
     gemini_key_val = ""
 
-# دالة الاتصال المباشر والمستقر مع تصحيح رابط النموذج
+# دالة الاتصال المباشر مع التحديث إلى النموذج الجديد والمستقر
 def call_gemini_api(prompt_text, api_key):
-    # تم ضبط اسم النموذج بشكل مباشر ودقيق في الرابط
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    # استخدام gemini-2.0-flash لضمان عدم حصول خطأ 404
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
     
     payload = {
         "contents": [{
