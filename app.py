@@ -1,8 +1,10 @@
 import os
+import json
+import urllib.request
+import urllib.error
 import streamlit as st
 from langchain_chroma import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from google import genai
 
 # إعداد الصفحة وتصميم الهوية البصرية
 st.set_page_config(
@@ -62,8 +64,29 @@ try:
 except Exception:
     gemini_key_val = ""
 
-# تهيئة العميل الجديد المعتمد من جوجل
-client = genai.Client(api_key=gemini_key_val)
+# دالة الاتصال المباشر والمستقر مع Gemini REST API
+def call_gemini_api(prompt_text, api_key):
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    
+    payload = {
+        "contents": [{
+            "parts": [{"text": prompt_text}]
+        }]
+    }
+    
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
+    
+    try:
+        with urllib.request.urlopen(req) as response:
+            res_data = json.loads(response.read().decode("utf-8"))
+            # استخراج النص الناتج بدقة
+            return res_data["candidates"][0]["content"]["parts"][0]["text"]
+    except urllib.error.HTTPError as e:
+        error_message = e.read().decode("utf-8")
+        return f"خطأ في الاتصال بالمنصة السحابية: {e.code} - {error_message}"
+    except Exception as ex:
+        return f"حدث خطأ غير متوقع: {str(ex)}"
 
 # تحميل النماذج وقاعدة البيانات مع التخزين المؤقت
 @st.cache_resource
@@ -108,6 +131,8 @@ with col2:
 if generate_btn:
     if not user_scenario.strip():
         st.warning("⚠️ يرجى كتابة وقائع النازلة أو الاستشارة أولاً قبل الضغط على الزر.")
+    elif not gemini_key_val:
+        st.error("⚠️ مفتاح API غير موجود في إعدادات المنصة (Secrets).")
     else:
         with st.spinner("🔄 جاري البحث الدلالي وتحليل النازلة عبر النماذج الذكية..."):
             results = vector_db.similarity_search(user_scenario, k=3)
@@ -134,11 +159,8 @@ if generate_btn:
             الاستشارة:
             """
             
-            # الاستدعاء بالطريقة الحديثة والمستقرة للعميل
-            response = client.models.generate_content(
-                model='gemini-1.5-flash',
-                contents=prompt_full,
-            )
+            # استدعاء الـ API مباشرة بدون أي مكتبات معقدة
+            response_text = call_gemini_api(prompt_full, gemini_key_val)
             
             st.success("✅ تمت صياغة الاستشارة القانونية بنجاح!")
             
@@ -147,7 +169,7 @@ if generate_btn:
             with tab1:
                 st.markdown("### الاستشارة الرسمية")
                 st.markdown("---")
-                st.markdown(response.text)
+                st.markdown(response_text)
                 
             with tab2:
                 st.markdown("### السندات المستخرجة من قاعدة البيانات")
